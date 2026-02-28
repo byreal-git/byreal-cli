@@ -1,13 +1,56 @@
 {
-  "name": "byreal-cli",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "name": "@byreal/byreal-cli",
+  "version": "0.1.0",
+  "description": "AI-friendly CLI for Byreal CLMM DEX on Solana",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "bin": {
+    "byreal-cli": "dist/index.cjs"
   },
-  "keywords": [],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --outfile=dist/index.cjs --format=cjs --platform=node --target=node18 --banner:js=\"#!/usr/bin/env node\"",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "byreal",
+    "solana",
+    "clmm",
+    "dex",
+    "cli",
+    "defi",
+    "liquidity"
+  ],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "SKILL.md"
+  ],
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "ky": "^1.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.14.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
 }

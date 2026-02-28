@@ -1,47 +1,39 @@
-HELP.md
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Dependencies
+node_modules/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# Build output
+dist/
 
-### IntelliJ IDEA ###
-.idea
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-.mvn
-.flattened-pom.xml
-.agent/
-
-logs/
-*.log
-
-local.properties
-*.local.properties
-config/local.properties
-
+# OS
 .DS_Store
+Thumbs.db
 
+# Logs
+*.log
+npm-debug.log*
 
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Keypair files (security - prevent accidental commit)
+id.json
+*-keypair.json
+
+docs
