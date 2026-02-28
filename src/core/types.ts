@@ -10,9 +10,9 @@ export type OutputFormat = 'json' | 'table' | 'csv';
 
 export interface GlobalOptions {
   output: OutputFormat;
-  quiet: boolean;
-  verbose: boolean;
   debug: boolean;
+  keypairPath?: string;
+  nonInteractive?: boolean;
 }
 
 // ============================================
@@ -209,4 +209,66 @@ export function ok<T>(value: T): Result<T, never> {
 
 export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
+}
+
+// ============================================
+// Key Source Types
+// ============================================
+
+/** 密钥来源：仅支持 CLI flag 和配置文件两种 */
+export type KeySource =
+  | 'cli-flag'           // --keypair-path flag（临时指定）
+  | 'config'             // ~/.config/byreal/config.json（通过 wallet set 配置）
+  | 'none';              // 未配置
+
+export interface KeySourceInfo {
+  source: KeySource;
+  label: string;
+  path?: string;
+}
+
+// ============================================
+// Config Types
+// ============================================
+
+export interface ByrealDefaults {
+  priority_fee_micro_lamports: number;
+  slippage_bps: number;
+  require_confirmation: boolean;
+  auto_confirm_threshold_usd: number;
+}
+
+export interface ByrealConfig {
+  keypair_path?: string;
+  rpc_url: string;
+  cluster: string;
+  defaults: ByrealDefaults;
+}
+
+// ============================================
+// Wallet Types
+// ============================================
+
+export interface WalletInfo {
+  address: string;
+  source: KeySource;
+  source_label: string;
+  keypair_path?: string;
+  config_path?: string;
+}
+
+export interface WalletBalance {
+  sol: { amount_lamports: string; amount_sol: number; amount_usd?: number };
+  tokens: TokenBalance[];
+}
+
+export interface TokenBalance {
+  mint: string;
+  symbol?: string;
+  name?: string;
+  amount_raw: string;
+  amount_ui: string;
+  decimals: number;
+  is_native: boolean;
+  is_token_2022: boolean;
 }

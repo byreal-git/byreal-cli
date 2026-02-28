@@ -10,6 +10,9 @@ import { createTokensCommand } from './cli/commands/tokens.js';
 import { createOverviewCommand } from './cli/commands/overview.js';
 import { createSkillCommand } from './cli/commands/skill.js';
 import { createCatalogCommand } from './cli/commands/catalog.js';
+import { createWalletCommand } from './cli/commands/wallet.js';
+import { createConfigCommand } from './cli/commands/config.js';
+import { createSetupCommand } from './cli/commands/setup.js';
 
 // ============================================
 // Main Program
@@ -22,9 +25,9 @@ program
   .description('AI-friendly CLI for Byreal CLMM DEX on Solana')
   .version(VERSION, '-v, --version', 'Output the version number')
   .option('-o, --output <format>', 'Output format (json, table)', 'table')
-  .option('--quiet', 'Suppress non-essential output')
-  .option('--verbose', 'Show detailed logs')
   .option('--debug', 'Show debug information')
+  .option('--keypair-path <path>', 'Path to keypair file')
+  .option('--non-interactive', 'Disable interactive prompts')
   .addHelpText('before', chalk.cyan(LOGO) + chalk.yellow(EXPERIMENTAL_WARNING))
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
@@ -42,6 +45,9 @@ program.addCommand(createTokensCommand());
 program.addCommand(createOverviewCommand());
 program.addCommand(createSkillCommand());
 program.addCommand(createCatalogCommand());
+program.addCommand(createWalletCommand());
+program.addCommand(createConfigCommand());
+program.addCommand(createSetupCommand());
 
 // ============================================
 // Error Handling

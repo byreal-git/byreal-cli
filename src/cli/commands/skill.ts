@@ -37,6 +37,11 @@ byreal-cli --version
 | List tokens | \`byreal-cli tokens list -o json\` |
 | Global stats | \`byreal-cli overview -o json\` |
 | K-line data | \`byreal-cli pools klines <pool-id> -o json\` |
+| Wallet address | \`byreal-cli wallet address -o json\` |
+| Wallet balance | \`byreal-cli wallet balance -o json\` |
+| Set keypair | \`byreal-cli wallet set <keypair-path>\` |
+| Config list | \`byreal-cli config list -o json\` |
+| First-time setup | \`byreal-cli setup\` |
 
 ## Commands
 
@@ -133,6 +138,71 @@ Response includes:
 - Volume (24h and all-time)
 - Fees (24h and all-time)
 
+### wallet address
+Show wallet public key address.
+
+\`\`\`bash
+byreal-cli wallet address -o json
+\`\`\`
+
+### wallet balance
+Query SOL and SPL token balance.
+
+\`\`\`bash
+byreal-cli wallet balance -o json
+\`\`\`
+
+### wallet set
+Set keypair path in configuration. The keypair file is copied to ~/.config/byreal/keys/ for isolation.
+
+\`\`\`bash
+byreal-cli wallet set <keypair-path>
+\`\`\`
+
+### wallet info
+Show detailed wallet information (address, source, config path).
+
+\`\`\`bash
+byreal-cli wallet info -o json
+\`\`\`
+
+### wallet reset
+Remove all keypair configuration (one-click cleanup).
+
+\`\`\`bash
+byreal-cli wallet reset --confirm
+\`\`\`
+
+### config list
+List all configuration values.
+
+\`\`\`bash
+byreal-cli config list -o json
+\`\`\`
+
+### config get
+Get a specific configuration value by dot-path key.
+
+\`\`\`bash
+byreal-cli config get <key>
+\`\`\`
+
+Supported keys: keypair_path, rpc_url, cluster, defaults.slippage_bps, defaults.priority_fee_micro_lamports, defaults.require_confirmation, defaults.auto_confirm_threshold_usd
+
+### config set
+Set a configuration value with type validation.
+
+\`\`\`bash
+byreal-cli config set <key> <value>
+\`\`\`
+
+### setup
+Interactive first-time setup. Prompts user to paste their private key (JSON byte array or Base58) and saves it to ~/.config/byreal/keys/id.json.
+
+\`\`\`bash
+byreal-cli setup
+\`\`\`
+
 ## Output Format
 
 All commands support \`-o json\` for structured output:
@@ -190,14 +260,21 @@ byreal-cli catalog show dex.pool.list -o json
 | dex.pool.klines | Get K-line data |
 | dex.token.list | Query tokens with search |
 | dex.overview.global | Global statistics |
+| wallet.address | Show wallet address |
+| wallet.balance | Query wallet balance |
+| wallet.info | Detailed wallet info |
+| wallet.set | Set keypair path |
+| wallet.reset | Remove keypair config |
+| config.list | List all config values |
+| setup | Interactive first-time setup |
 
 ## Global Options
 
 | Option | Description |
 |--------|-------------|
 | -o, --output | Output format: json, table |
-| --quiet | Suppress non-essential output |
-| --verbose | Show detailed logs |
+| --keypair-path | Path to keypair file (overrides config) |
+| --non-interactive | Disable interactive prompts |
 | --debug | Show debug information |
 | -v, --version | Show version |
 | -h, --help | Show help |
@@ -217,6 +294,8 @@ When an error occurs, check \`error.suggestions\` for recovery actions:
 - \`POOL_NOT_FOUND\` → List available pools
 - \`INSUFFICIENT_BALANCE\` → Suggest Swap or reduce amount
 - \`NETWORK_ERROR\` → Retry (error is retryable)
+- \`WALLET_NOT_CONFIGURED\` → Run \`byreal-cli setup\` or \`wallet set <keypair-path>\`
+- \`INVALID_KEYPAIR\` → Check keypair file format (64-byte JSON array)
 
 ## Sort Fields Reference
 

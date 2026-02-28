@@ -2,6 +2,8 @@
  * Constants for Byreal CLI
  */
 
+import type { KeySource, ByrealConfig } from './types.js';
+
 // ============================================
 // Version
 // ============================================
@@ -38,7 +40,7 @@ export const API_ENDPOINTS = {
 // Solana Configuration
 // ============================================
 
-export const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+export const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://jenelle-p85r4h-fast-mainnet.helius-rpc.com';
 export const SOLANA_CLUSTER = process.env.SOLANA_CLUSTER || 'mainnet-beta';
 
 // ============================================
@@ -47,7 +49,12 @@ export const SOLANA_CLUSTER = process.env.SOLANA_CLUSTER || 'mainnet-beta';
 
 export const CONFIG_DIR = '~/.config/byreal';
 export const CONFIG_FILE = 'config.json';
-export const DEFAULT_SOLANA_KEYPAIR = '~/.config/solana/id.json';
+
+// ============================================
+// Byreal Keys Directory（隔离存储，不与 Solana CLI/Anchor 交叉）
+// ============================================
+
+export const BYREAL_KEYS_DIR = '~/.config/byreal/keys';
 
 // ============================================
 // Defaults
@@ -110,3 +117,35 @@ export const EXPERIMENTAL_WARNING = `
 ⚠️  WARNING: This CLI is experimental and under active development.
     Use at your own risk. Always verify transactions before confirming.
 `;
+
+// ============================================
+// Key Source Labels
+// ============================================
+
+export const KEY_SOURCE_LABELS: Record<KeySource, string> = {
+  'cli-flag': '--keypair-path flag',
+  'config': 'config file (~/.config/byreal/config.json)',
+  'none': 'not configured',
+};
+
+// ============================================
+// Default Config
+// ============================================
+
+export const DEFAULT_CONFIG: ByrealConfig = {
+  rpc_url: 'https://jenelle-p85r4h-fast-mainnet.helius-rpc.com',
+  cluster: 'mainnet-beta',
+  defaults: {
+    priority_fee_micro_lamports: 50000,
+    slippage_bps: 100,
+    require_confirmation: true,
+    auto_confirm_threshold_usd: 10,
+  },
+};
+
+// ============================================
+// File Permissions (Unix)
+// ============================================
+
+export const DIR_PERMISSIONS = 0o700;
+export const FILE_PERMISSIONS = 0o600;

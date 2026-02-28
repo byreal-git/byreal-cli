@@ -25,6 +25,12 @@ export const ErrorCodes = {
   KEYPAIR_NOT_FOUND: 'KEYPAIR_NOT_FOUND',
   INVALID_KEYPAIR: 'INVALID_KEYPAIR',
   PERMISSION_DENIED: 'PERMISSION_DENIED',
+  WALLET_NOT_CONFIGURED: 'WALLET_NOT_CONFIGURED',
+
+  // Config errors
+  CONFIG_NOT_FOUND: 'CONFIG_NOT_FOUND',
+  CONFIG_INVALID: 'CONFIG_INVALID',
+  FILE_PERMISSION_ERROR: 'FILE_PERMISSION_ERROR',
 
   // Network errors
   NETWORK_ERROR: 'NETWORK_ERROR',
@@ -154,12 +160,99 @@ export function keypairNotFoundError(): ByrealError {
     suggestions: [
       {
         action: 'set',
-        description: 'Set keypair path',
-        command: 'byreal-cli wallet set --keypair-path ~/.config/solana/id.json',
+        description: 'Set keypair path via wallet set',
+        command: 'byreal-cli wallet set <keypair-path>',
       },
       {
-        action: 'env',
-        description: 'Or set BYREAL_PRIVATE_KEY environment variable',
+        action: 'flag',
+        description: 'Or use --keypair-path flag',
+        command: 'byreal-cli --keypair-path ~/.config/byreal/keys/main.json wallet address',
+      },
+    ],
+    retryable: false,
+  });
+}
+
+export function invalidKeypairError(reason: string, path?: string): ByrealError {
+  return new ByrealError({
+    code: ErrorCodes.INVALID_KEYPAIR,
+    type: 'AUTH',
+    message: `Invalid keypair${path ? ` at ${path}` : ''}: ${reason}`,
+    details: path ? { path } : undefined,
+    suggestions: [
+      {
+        action: 'check',
+        description: 'Ensure the file is a valid Solana keypair JSON (64-byte number array)',
+      },
+    ],
+    retryable: false,
+  });
+}
+
+export function permissionError(filePath: string, expected: string, actual: string): ByrealError {
+  return new ByrealError({
+    code: ErrorCodes.FILE_PERMISSION_ERROR,
+    type: 'AUTH',
+    message: `File permission too open: ${filePath} (expected ${expected}, got ${actual})`,
+    details: { path: filePath, expected, actual },
+    suggestions: [
+      {
+        action: 'fix',
+        description: `Fix permissions with chmod`,
+        command: `chmod ${expected} ${filePath}`,
+      },
+    ],
+    retryable: false,
+  });
+}
+
+export function configNotFoundError(): ByrealError {
+  return new ByrealError({
+    code: ErrorCodes.CONFIG_NOT_FOUND,
+    type: 'SYSTEM',
+    message: 'Configuration file not found at ~/.config/byreal/config.json',
+    suggestions: [
+      {
+        action: 'set',
+        description: 'Create config by setting a keypair',
+        command: 'byreal-cli wallet set <keypair-path>',
+      },
+    ],
+    retryable: false,
+  });
+}
+
+export function configInvalidError(reason: string): ByrealError {
+  return new ByrealError({
+    code: ErrorCodes.CONFIG_INVALID,
+    type: 'SYSTEM',
+    message: `Invalid configuration: ${reason}`,
+    suggestions: [
+      {
+        action: 'reset',
+        description: 'Reset configuration',
+        command: 'byreal-cli wallet reset --confirm',
+      },
+    ],
+    retryable: false,
+  });
+}
+
+export function walletNotConfiguredError(): ByrealError {
+  return new ByrealError({
+    code: ErrorCodes.WALLET_NOT_CONFIGURED,
+    type: 'AUTH',
+    message: 'No wallet configured. Set a keypair to get started.',
+    suggestions: [
+      {
+        action: 'set',
+        description: 'Set keypair path',
+        command: 'byreal-cli wallet set <keypair-path>',
+      },
+      {
+        action: 'flag',
+        description: 'Or use --keypair-path flag for one-time use',
+        command: 'byreal-cli --keypair-path <path> wallet address',
       },
     ],
     retryable: false,

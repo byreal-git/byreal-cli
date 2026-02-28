@@ -8,7 +8,7 @@
     "byreal-cli": "dist/index.cjs"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --outfile=dist/index.cjs --format=cjs --platform=node --target=node18 --banner:js=\"#!/usr/bin/env node\"",
+    "build": "esbuild src/index.ts --bundle --outfile=dist/index.cjs --format=cjs --platform=node --target=node18 --banner:js=\"#!/usr/bin/env node\nvar _e=process.emit;process.emit=function(n,a){if(n==='warning'&&a?.name==='DeprecationWarning')return false;return _e.apply(this,arguments)};\"",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
@@ -38,6 +38,9 @@
     "SKILL.md"
   ],
   "dependencies": {
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.2",
+    "bs58": "^6.0.0",
     "chalk": "^5.3.0",
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",

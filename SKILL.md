@@ -29,6 +29,11 @@ npm install -g @byreal/byreal-cli
 | Global stats | `byreal-cli overview -o json` |
 | Search tokens | `byreal-cli tokens list --search <address> -o json` |
 | K-line data | `byreal-cli pools klines <pool-id> -o json` |
+| Wallet address | `byreal-cli wallet address -o json` |
+| Wallet balance | `byreal-cli wallet balance -o json` |
+| Set keypair | `byreal-cli wallet set <keypair-path>` |
+| Config list | `byreal-cli config list -o json` |
+| First-time setup | `byreal-cli setup` |
 | Find capability | `byreal-cli catalog show dex.pool.list -o json` |
 
 ## Key Parameters
@@ -44,7 +49,7 @@ npm install -g @byreal/byreal-cli
 - `--sort-field`: tvl, volumeUsd24h, price, priceChange24h, apr24h
 - `--sort`: asc, desc
 
-## Risk Profile Mapping
+## Risk Mapping
 
 | User Expression | Range | Tick Range | Notes |
 |-----------------|-------|------------|-------|

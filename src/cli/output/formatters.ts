@@ -13,6 +13,9 @@ import type {
   GlobalOverview,
   CliError,
   Kline,
+  WalletInfo,
+  WalletBalance,
+  ByrealConfig
 } from '../../core/types.js';
 
 // ============================================
@@ -276,6 +279,79 @@ export function outputKlineChart(klines: Kline[], poolId: string, token: string)
   console.log(chalk.white(`  Open:  ${firstClose.toPrecision(6)}  →  Close: ${lastClose.toPrecision(6)}  (${changeStr})`));
   console.log(chalk.white(`  High:  ${maxPrice.toPrecision(6)}      Low:   ${minPrice.toPrecision(6)}`));
   console.log(chalk.gray(`  Points: ${data.length}`));
+}
+
+// ============================================
+// Wallet Formatters
+// ============================================
+
+export function outputWalletAddress(address: string, source: string): void {
+  console.log(chalk.cyan.bold('\nWallet Address\n'));
+  console.log(chalk.white.bold(`  ${address}`));
+  console.log(chalk.gray(`  Source: ${source}`));
+}
+
+export function outputWalletInfo(info: WalletInfo): void {
+  console.log(chalk.cyan.bold('\nWallet Information\n'));
+
+  const table = createTable(['Field', 'Value']);
+  table.push(
+    ['Address', chalk.white.bold(info.address)],
+    ['Source', info.source_label],
+  );
+
+  if (info.keypair_path) {
+    table.push(['Keypair Path', chalk.gray(info.keypair_path)]);
+  }
+  if (info.config_path) {
+    table.push(['Config Path', chalk.gray(info.config_path)]);
+  }
+  console.log(table.toString());
+}
+
+export function outputWalletBalance(balance: WalletBalance, address: string): void {
+  console.log(chalk.cyan.bold(`\nBalance: ${address}\n`));
+
+  // SOL balance
+  const table = createTable(['Mint', 'Balance', 'Program']);
+  table.push([
+    chalk.gray('native'),
+    `${balance.sol.amount_sol.toFixed(9)} SOL${balance.sol.amount_usd ? ` (${formatUsd(balance.sol.amount_usd)})` : ''}`,
+    'spl-token',
+  ]);
+
+  // SPL token balances
+  for (const token of balance.tokens) {
+    table.push([
+      chalk.gray(token.mint),
+      token.amount_ui,
+      token.is_token_2022 ? 'token-2022' : 'spl-token',
+    ]);
+  }
+
+  console.log(table.toString());
+  console.log(chalk.gray(`\n  ${balance.tokens.length} SPL token(s)`));
+}
+
+export function outputConfigList(config: ByrealConfig): void {
+  console.log(chalk.cyan.bold('\nConfiguration\n'));
+
+  const table = createTable(['Key', 'Value']);
+  table.push(
+    ['keypair_path', config.keypair_path || chalk.gray('(not set)')],
+    ['rpc_url', config.rpc_url],
+    ['cluster', config.cluster],
+    ['defaults.priority_fee_micro_lamports', String(config.defaults.priority_fee_micro_lamports)],
+    ['defaults.slippage_bps', String(config.defaults.slippage_bps)],
+    ['defaults.require_confirmation', String(config.defaults.require_confirmation)],
+    ['defaults.auto_confirm_threshold_usd', String(config.defaults.auto_confirm_threshold_usd)],
+  );
+
+  console.log(table.toString());
+}
+
+export function outputConfigValue(key: string, value: unknown): void {
+  console.log(chalk.cyan(`${key}`) + ': ' + chalk.white(value === undefined ? '(not set)' : String(value)));
 }
 
 // ============================================
