@@ -14,7 +14,7 @@ const SKILL_DOC = `# Byreal CLI - Full Documentation (v${VERSION})
 
 ## Overview
 
-Byreal CLI is an AI-friendly tool for managing CLMM liquidity positions on Byreal DEX (Solana).
+Byreal DEX (Solana) all-in-one CLI: query pools/tokens/TVL, analyze pool APR & risk, open/close/claim CLMM positions, token swap, wallet & balance management. Use when user mentions Byreal, LP, liquidity, pools, DeFi positions, token swap, or Solana DEX operations.
 
 ## Setup
 
@@ -26,21 +26,95 @@ npm install -g @byreal/byreal-cli
 byreal-cli --version
 \`\`\`
 
-## Output Format Rule (CRITICAL)
+## Capability Discovery
+
+Use \`byreal-cli catalog\` to discover capabilities:
+
+\`\`\`bash
+# List all capabilities
+byreal-cli catalog list
+
+# Search capabilities
+byreal-cli catalog search pool
+
+# Show capability details with full parameter info
+byreal-cli catalog show dex.pool.list
+\`\`\`
+
+| Capability ID | Description |
+|---------------|-------------|
+| dex.pool.list | Query pool list with sorting/filtering |
+| dex.pool.info | Get pool details |
+| dex.pool.klines | Get K-line data |
+| dex.pool.analyze | Comprehensive pool analysis |
+| dex.token.list | Query tokens with search |
+| dex.overview.global | Global statistics |
+| dex.swap.execute | Preview or execute a token swap |
+| dex.position.list | List user's CLMM positions |
+| dex.position.analyze | Analyze existing position |
+| dex.position.open | Open a new CLMM position |
+| dex.position.close | Close a position |
+| dex.position.claim | Claim accumulated fees |
+| wallet.address | Show wallet address |
+| wallet.balance | Query wallet balance |
+| wallet.info | Detailed wallet info |
+| wallet.set | Set keypair path |
+| wallet.reset | Remove keypair config |
+| config.list | List all config values |
+| config.get | Get a specific config value |
+| config.set | Set a config value |
+| setup | Interactive first-time setup |
+
+## Global Options
+
+| Option | Description |
+|--------|-------------|
+| -o, --output | Output format: json, table |
+| --keypair-path | Path to keypair file (overrides config) |
+| --non-interactive | Disable interactive prompts |
+| --debug | Show debug information |
+| -v, --version | Show version |
+| -h, --help | Show help |
+
+## Output Format Rule
 
 - **\`-o json\`**: Use ONLY when you need to parse the result for further logic (e.g., extract pool address to feed into the next command, compare values programmatically).
 - **No \`-o json\`** (default table/chart): Use when the user wants to **see** results. The CLI has built-in tables, K-line charts, and formatted analysis output — do NOT fetch JSON and re-draw them yourself.
 
-**Rule of thumb**: If the user says "show me", "look at", "check", "how is the trend" → **omit \`-o json\`**, let the CLI render directly. If you need the data for a subsequent command → use \`-o json\`.
+## Wallet Check
 
-Examples:
-- "帮我看一下黄金池子的价格走势" → \`byreal-cli pools klines <pool-id>\` (NO \`-o json\`, CLI draws K-line chart)
-- "分析一下这个池子" → \`byreal-cli pools analyze <pool-id>\` (NO \`-o json\`, CLI renders analysis table)
-- Need pool address for next step → \`byreal-cli pools list -o json\` (YES \`-o json\`, you need to parse the address)
+Before executing any command that requires a wallet (swap, positions, wallet balance, etc.), **always check wallet configuration first**:
+
+\`\`\`bash
+byreal-cli wallet address
+\`\`\`
+
+- If it returns an address → wallet is configured, proceed.
+- If it returns \`WALLET_NOT_CONFIGURED\` → tell the user to run \`byreal-cli setup\` first.
+
+Do NOT attempt wallet-required operations without confirming the wallet is configured.
+
+## Amount Handling
+
+**All token amounts (--amount) use UI format by default.** For example, \`--amount 0.1\` means 0.1 tokens, not 0.1 lamports. The CLI automatically resolves token decimals based on the mint address:
+- Common tokens (SOL, USDC, USDT, etc.) are resolved instantly from built-in registry
+- Uncommon tokens are resolved via on-chain RPC lookup
+
+You do NOT need to pass token decimals or convert amounts manually. Use \`--raw\` only if you explicitly need to pass raw (smallest unit) amounts.
+
+## Hard Constraints (Do NOT violate)
+
+1. **\`-o json\` only for parsing** — when showing results to the user (charts, tables, analysis), **omit it** and let the CLI render directly. Never fetch JSON then re-draw charts/tables yourself.
+2. **Never truncate on-chain data** — always display the FULL string for: transaction signatures (txid), mint addresses, pool addresses, NFT addresses, wallet addresses. Never use \`xxx...yyy\` abbreviation.
+3. **Never request or display private keys** - use keypair file paths only
+4. **For write operations**: Always preview with --dry-run first, then --confirm
+5. **Large amounts (> $10,000)**: Require explicit user confirmation
+6. **High slippage (> 200 bps)**: Warn user before proceeding
+7. **Token amounts use UI format** - pass amounts as human-readable values (e.g., 0.1 for 0.1 SOL). Never manually convert to raw/lamport units. The CLI handles all decimals internally.
+8. **No need to pass token decimals** - the CLI auto-resolves decimals from mint address
+9. **Check wallet before write ops** — run \`wallet address\` before any wallet-required command
 
 ## Quick Reference
-
-Add \`-o json\` only when you need to parse data for the next step. **Omit it when displaying to the user.**
 
 | User Intent | Command |
 |-------------|---------|
@@ -381,19 +455,6 @@ Response includes:
 - **poolContext**: feeApr24h, volume24h, tvl, priceChange24h
 - **unclaimedFees**: tokenA and tokenB unclaimed fee amounts
 
-## Wallet Check
-
-Before executing any command that requires a wallet (swap, positions, wallet balance, etc.), **always check wallet configuration first**:
-
-\`\`\`bash
-byreal-cli wallet address
-\`\`\`
-
-- If it returns an address → wallet is configured, proceed.
-- If it returns \`WALLET_NOT_CONFIGURED\` → tell the user to run \`byreal-cli setup\` first.
-
-Do NOT attempt wallet-required operations without confirming the wallet is configured.
-
 ## Workflow: Finding Investment Opportunities
 
 When the user asks about investment opportunities, potential pools, or yield farming options:
@@ -425,14 +486,6 @@ When the user specifies an exact token amount:
 5. **Preview position**: \`byreal-cli positions open --pool <id> --price-lower <p> --price-upper <p> --base MintA --amount <amt> --dry-run -o json\`
 6. **Execute**: \`byreal-cli positions open ... --confirm -o json\`
 
-## Amount Handling
-
-**All token amounts (--amount) use UI format by default.** For example, \`--amount 0.1\` means 0.1 tokens, not 0.1 lamports. The CLI automatically resolves token decimals based on the mint address:
-- Common tokens (SOL, USDC, USDT, etc.) are resolved instantly from built-in registry
-- Uncommon tokens are resolved via on-chain RPC lookup
-
-You do NOT need to pass token decimals or convert amounts manually. Use \`--raw\` only if you explicitly need to pass raw (smallest unit) amounts.
-
 ## Workflow: Open Position with Insufficient Balance
 
 When \`positions open --dry-run\` reports insufficient balance (\`balanceWarnings\` in JSON), follow this workflow:
@@ -446,7 +499,9 @@ When \`positions open --dry-run\` reports insufficient balance (\`balanceWarning
    - If the user has SOL but not USDT, swap SOL → needed token (do NOT tell the user they need USDT first)
    - If unsure which token to use, ask the user
 4. **Execute swap**: \`byreal-cli swap execute --input-mint <source-mint> --output-mint <deficit-token-mint> --amount <deficit-amount> --dry-run -o json\` to preview, then \`--confirm\`
-5. **Re-run open**: After swap completes, re-run \`positions open --dry-run\` to verify balances, then \`--confirm\`
+   - If swap fails with default mode (\`--swap-mode in\`), try \`--swap-mode out\` instead — it may find a different route (e.g., single-pool AMM route) that succeeds.
+5. **Wait after swap**: After swap confirms, **wait 3-5 seconds** before checking wallet balance or proceeding. On-chain state and RPC nodes have propagation delay — querying immediately may return stale balances.
+6. **Re-run open**: After waiting, re-run \`positions open --dry-run\` to verify balances, then \`--confirm\`
 
 **Important**: The swap source can be ANY token in the wallet. Do NOT default to only using the pool's own tokens. Always check \`wallet balance\` to see what's available.
 
@@ -485,67 +540,6 @@ Error responses:
 }
 \`\`\`
 
-## Capability Discovery
-
-Use \`byreal-cli catalog\` to discover capabilities:
-
-\`\`\`bash
-# List all capabilities
-byreal-cli catalog list -o json
-
-# Search capabilities
-byreal-cli catalog search pool
-
-# Show capability details with full parameter info
-byreal-cli catalog show dex.pool.list -o json
-\`\`\`
-
-| Capability ID | Description |
-|---------------|-------------|
-| dex.pool.list | Query pool list with sorting/filtering |
-| dex.pool.info | Get pool details |
-| dex.pool.klines | Get K-line data |
-| dex.pool.analyze | Comprehensive pool analysis |
-| dex.token.list | Query tokens with search |
-| dex.overview.global | Global statistics |
-| dex.swap.execute | Preview or execute a token swap |
-| dex.position.list | List user's CLMM positions |
-| dex.position.analyze | Analyze existing position |
-| dex.position.open | Open a new CLMM position |
-| dex.position.close | Close a position |
-| dex.position.claim | Claim accumulated fees |
-| wallet.address | Show wallet address |
-| wallet.balance | Query wallet balance |
-| wallet.info | Detailed wallet info |
-| wallet.set | Set keypair path |
-| wallet.reset | Remove keypair config |
-| config.list | List all config values |
-| config.get | Get a specific config value |
-| config.set | Set a config value |
-| setup | Interactive first-time setup |
-
-## Global Options
-
-| Option | Description |
-|--------|-------------|
-| -o, --output | Output format: json, table |
-| --keypair-path | Path to keypair file (overrides config) |
-| --non-interactive | Disable interactive prompts |
-| --debug | Show debug information |
-| -v, --version | Show version |
-| -h, --help | Show help |
-
-## Hard Constraints (Do NOT violate)
-
-1. **\`-o json\` only for parsing** — when showing results to the user (charts, tables, analysis), **omit it** and let the CLI render directly. Never fetch JSON then re-draw charts/tables yourself.
-2. **Never truncate on-chain data** — always display the FULL string for: transaction signatures (txid), mint addresses, pool addresses, NFT addresses, wallet addresses. Never use \`xxx...yyy\` abbreviation.
-3. **Never request or display private keys** - use keypair file paths only
-4. **For write operations**: Always preview with --dry-run first, then --confirm
-5. **Large amounts (> $10,000)**: Require explicit user confirmation
-6. **High slippage (> 200 bps)**: Warn user before proceeding
-7. **Token amounts use UI format** - pass amounts as human-readable values (e.g., 0.1 for 0.1 SOL). Never manually convert to raw/lamport units. The CLI handles all decimals internally.
-8. **No need to pass token decimals** - the CLI auto-resolves decimals from mint address
-9. **Check wallet before write ops** — run \`wallet address\` before any wallet-required command
 
 ## Error Handling
 
