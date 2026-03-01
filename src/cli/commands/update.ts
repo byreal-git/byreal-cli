@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
 import { VERSION } from '../../core/constants.js';
-import { checkForUpdate, INSTALL_COMMAND } from '../../core/update-check.js';
+import { checkForUpdate, getInstallCommand } from '../../core/update-check.js';
 
 // ============================================
 // Create Update Command
@@ -23,6 +23,7 @@ export function createUpdateCommand(): Command {
     .action((_options: unknown, cmd: Command) => {
       const globalOptions = cmd.optsWithGlobals();
       const result = checkForUpdate(true);
+      const installCommand = getInstallCommand(result?.latestVersion);
 
       if (globalOptions.output === 'json') {
         console.log(JSON.stringify({
@@ -32,7 +33,7 @@ export function createUpdateCommand(): Command {
             currentVersion: VERSION,
             latestVersion: result?.latestVersion ?? VERSION,
             updateAvailable: result?.updateAvailable ?? false,
-            installCommand: INSTALL_COMMAND,
+            installCommand,
           },
         }, null, 2));
         return;
@@ -46,7 +47,7 @@ export function createUpdateCommand(): Command {
 
       if (result.updateAvailable) {
         console.log(chalk.green(`Update available: ${result.currentVersion} → ${result.latestVersion}`));
-        console.log(chalk.gray(`Run: ${INSTALL_COMMAND}`));
+        console.log(chalk.gray(`Run: ${installCommand}`));
       } else {
         console.log(chalk.green(`Already up to date (v${VERSION})`));
       }
@@ -57,15 +58,18 @@ export function createUpdateCommand(): Command {
     .command('install')
     .description('Install the latest version')
     .action(() => {
+      const result = checkForUpdate(true);
+      const installCommand = getInstallCommand(result?.latestVersion);
+
       console.log(chalk.cyan(`Installing latest version from GitHub...`));
-      console.log(chalk.gray(`> ${INSTALL_COMMAND}\n`));
+      console.log(chalk.gray(`> ${installCommand}\n`));
 
       try {
-        execSync(INSTALL_COMMAND, { stdio: 'inherit' });
+        execSync(installCommand, { stdio: 'inherit' });
         console.log(chalk.green('\nUpdate complete!'));
       } catch {
         console.error(chalk.red('\nUpdate failed. Try running manually:'));
-        console.error(chalk.gray(`  ${INSTALL_COMMAND}`));
+        console.error(chalk.gray(`  ${installCommand}`));
         process.exit(1);
       }
     });

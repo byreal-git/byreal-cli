@@ -5,7 +5,7 @@ AI-friendly CLI for [Byreal](https://byreal.io) CLMM DEX on Solana.
 ## Install
 
 ```bash
-npm install -g github:byreal-git/byreal-cli
+npm install -g https://github.com/byreal-git/byreal-cli/releases/latest/download/byreal-cli.tgz
 ```
 
 Requires Node.js >= 18.

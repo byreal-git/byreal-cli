@@ -31,7 +31,14 @@ interface UpdateResult {
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 const CACHE_DIR = join(homedir(), '.config', 'byreal');
 const CACHE_FILE = join(CACHE_DIR, 'update-check.json');
-const INSTALL_COMMAND = `npm install -g github:${GITHUB_REPO}`;
+const RELEASE_URL = `https://github.com/${GITHUB_REPO}/releases`;
+
+function getInstallCommand(version?: string): string {
+  if (version) {
+    return `npm install -g ${RELEASE_URL}/download/v${version}/byreal-cli-${version}.tgz`;
+  }
+  return `npm install -g ${RELEASE_URL}/latest/download/byreal-cli.tgz`;
+}
 
 // ============================================
 // Cache Management
@@ -141,8 +148,9 @@ export function printUpdateNotice(): void {
   const result = checkForUpdate();
   if (!result || !result.updateAvailable) return;
 
+  const installCmd = getInstallCommand(result.latestVersion);
   const line1 = `Update available: ${result.currentVersion} → ${result.latestVersion}`;
-  const line2 = `Run: ${INSTALL_COMMAND}`;
+  const line2 = `Run: ${installCmd}`;
   const maxLen = Math.max(line1.length, line2.length);
   const pad = (s: string) => s + ' '.repeat(maxLen - s.length);
 
@@ -154,4 +162,4 @@ export function printUpdateNotice(): void {
   console.log();
 }
 
-export { INSTALL_COMMAND };
+export { getInstallCommand };
