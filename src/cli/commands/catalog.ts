@@ -81,8 +81,8 @@ const CAPABILITIES: Capability[] = [
     command: 'byreal-cli pools analyze <pool-id>',
     params: [
       { name: 'pool-id', type: 'string', required: true, description: 'Pool address' },
-      { name: 'amount', type: 'string', required: false, description: 'Simulated investment amount in USD', default: '1000' },
-      { name: 'ranges', type: 'string', required: false, description: 'Custom range percentages, comma-separated', default: '1,5,10,20,50' },
+      { name: 'amount', type: 'string', required: false, description: 'Simulated investment amount in USD', default: 'wallet balance or 1000' },
+      { name: 'ranges', type: 'string', required: false, description: 'Custom range percentages, comma-separated', default: '1,2,3,5,8,10,15,20,35,50' },
     ],
   },
   {
@@ -168,6 +168,29 @@ const CAPABILITIES: Capability[] = [
     params: [],
   },
   {
+    id: 'config.get',
+    name: 'Config Get',
+    description: 'Get a specific configuration value by dot-path key',
+    category: 'query',
+    auth_required: false,
+    command: 'byreal-cli config get <key>',
+    params: [
+      { name: 'key', type: 'string', required: true, description: 'Config key (e.g., rpc_url, defaults.slippage_bps)' },
+    ],
+  },
+  {
+    id: 'config.set',
+    name: 'Config Set',
+    description: 'Set a configuration value with type validation',
+    category: 'execute',
+    auth_required: false,
+    command: 'byreal-cli config set <key> <value>',
+    params: [
+      { name: 'key', type: 'string', required: true, description: 'Config key (e.g., rpc_url, defaults.slippage_bps)' },
+      { name: 'value', type: 'string', required: true, description: 'Value to set' },
+    ],
+  },
+  {
     id: 'setup',
     name: 'Setup',
     description: 'Interactive first-time setup (configure wallet by pasting private key)',
@@ -224,7 +247,7 @@ const CAPABILITIES: Capability[] = [
   {
     id: 'dex.position.open',
     name: 'Open Position',
-    description: 'Open a new CLMM position. --dry-run checks wallet balance and reports deficit with swap suggestions. If balanceWarnings present, swap to acquire tokens first via dex.swap.execute',
+    description: 'Open a new CLMM position. Two modes: --amount (token amount) or --amount-usd (USD budget, auto-splits into tokenA/B). --dry-run checks wallet balance and reports deficit with swap suggestions.',
     category: 'execute',
     auth_required: true,
     command: 'byreal-cli positions open',
@@ -232,8 +255,9 @@ const CAPABILITIES: Capability[] = [
       { name: 'pool', type: 'string', required: true, description: 'Pool address' },
       { name: 'price-lower', type: 'string', required: true, description: 'Lower price bound' },
       { name: 'price-upper', type: 'string', required: true, description: 'Upper price bound' },
-      { name: 'base', type: 'string', required: true, description: 'Base token', enum: ['MintA', 'MintB'] },
-      { name: 'amount', type: 'string', required: true, description: 'Amount of base token (UI format, decimals auto-resolved)' },
+      { name: 'base', type: 'string', required: false, description: 'Base token (required with --amount)', enum: ['MintA', 'MintB'] },
+      { name: 'amount', type: 'string', required: false, description: 'Amount of base token (UI format). Mutually exclusive with --amount-usd.' },
+      { name: 'amount-usd', type: 'string', required: false, description: 'Investment in USD. Auto-calculates token A/B split. Mutually exclusive with --amount.' },
       { name: 'slippage', type: 'integer', required: false, description: 'Slippage tolerance in basis points' },
       { name: 'raw', type: 'boolean', required: false, description: 'Amount is already in raw (smallest unit) format' },
       { name: 'dry-run', type: 'boolean', required: false, description: 'Preview the position without opening' },
@@ -339,7 +363,7 @@ function outputCapabilityDetail(cap: Capability): void {
   console.log(chalk.cyan('\nExample:'));
   let example = cap.command;
   if (cap.id === 'dex.pool.info') {
-    example = 'byreal-cli pools info 7BqW...abc -o json';
+    example = 'byreal-cli pools info 9GTj99g9tbz9U6UYDsX6YeRTgUnkYG6GTnHv3qLa5aXq -o json';
   } else {
     example = `${cap.command} -o json`;
   }

@@ -175,8 +175,9 @@ function createPositionsOpenCommand(): Command {
     .requiredOption('--pool <address>', 'Pool address')
     .requiredOption('--price-lower <price>', 'Lower price bound')
     .requiredOption('--price-upper <price>', 'Upper price bound')
-    .requiredOption('--base <token>', 'Base token: MintA or MintB')
-    .requiredOption('--amount <amount>', 'Amount of base token (UI amount unless --raw)')
+    .option('--base <token>', 'Base token: MintA or MintB (required unless --amount-usd)')
+    .option('--amount <amount>', 'Amount of base token (UI amount unless --raw)')
+    .option('--amount-usd <usd>', 'Investment amount in USD (auto-calculates token split, mutually exclusive with --amount)')
     .option('--slippage <bps>', 'Slippage tolerance in basis points')
     .option('--raw', 'Amount is already in raw (smallest unit) format')
     .option('--dry-run', 'Preview the position without opening')
@@ -203,11 +204,30 @@ function createPositionsOpenCommand(): Command {
 
       const { keypair, publicKey } = keypairResult.value;
 
+      // Validate mutually exclusive options
+      const useAmountUsd = !!options.amountUsd;
+      const useTokenAmount = !!options.amount;
+      if (useAmountUsd && useTokenAmount) {
+        const err = { code: 'INVALID_PARAMS', type: 'VALIDATION' as const, message: '--amount and --amount-usd are mutually exclusive. Use one or the other.', retryable: false };
+        if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+        process.exit(1);
+      }
+      if (!useAmountUsd && !useTokenAmount) {
+        const err = { code: 'MISSING_PARAMS', type: 'VALIDATION' as const, message: 'Either --amount (with --base) or --amount-usd is required.', retryable: false };
+        if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+        process.exit(1);
+      }
+      if (useTokenAmount && !options.base) {
+        const err = { code: 'MISSING_PARAMS', type: 'VALIDATION' as const, message: '--base is required when using --amount. Specify MintA or MintB.', retryable: false };
+        if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+        process.exit(1);
+      }
+
       try {
         // Lazy-load SDK
         const { getChain } = await import('../../sdk/init.js');
         const { calculateTickAlignedPriceRange } = await import('../../libs/clmm-sdk/calculate.js');
-        const { getAmountBFromAmountA, getAmountAFromAmountB } = await import('../../libs/clmm-sdk/client/utils.js');
+        const { getAmountBFromAmountA, getAmountAFromAmountB, calculateTokenAmountsFromUsd } = await import('../../libs/clmm-sdk/client/utils.js');
 
         const chain = getChain();
 
@@ -226,29 +246,69 @@ function createPositionsOpenCommand(): Command {
         const tickLower = priceInTickLower.tick;
         const tickUpper = priceInTickUpper.tick;
 
-        // Determine base token and compute amounts
-        const base = options.base as 'MintA' | 'MintB';
-        const decimals = base === 'MintA' ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
-        const baseAmount = options.raw
-          ? new BN(options.amount)
-          : new BN(uiToRaw(options.amount, decimals));
+        // Fetch pool API info (symbols + prices) — needed by both paths
+        let symbolA = 'MintA';
+        let symbolB = 'MintB';
+        let tokenAPriceUsd = 0;
+        let tokenBPriceUsd = 0;
+        const poolApiResult = await api.getPoolInfo(options.pool);
+        if (poolApiResult.ok) {
+          symbolA = poolApiResult.value.token_a.symbol || symbolA;
+          symbolB = poolApiResult.value.token_b.symbol || symbolB;
+          tokenAPriceUsd = poolApiResult.value.token_a.price_usd ?? 0;
+          tokenBPriceUsd = poolApiResult.value.token_b.price_usd ?? 0;
+        }
 
-        // Calculate the other token amount
+        // Compute token amounts
+        let base: 'MintA' | 'MintB';
+        let baseAmount: BN;
         let otherAmount: BN;
-        if (base === 'MintA') {
-          otherAmount = getAmountBFromAmountA({
+        let investmentUsd: string | undefined;
+
+        if (useAmountUsd) {
+          // --amount-usd mode: auto-calculate token split from USD
+          if (tokenAPriceUsd <= 0 || tokenBPriceUsd <= 0) {
+            const err = { code: 'PRICE_UNAVAILABLE', type: 'BUSINESS' as const, message: `Cannot calculate token split: token price unavailable (${symbolA}: $${tokenAPriceUsd}, ${symbolB}: $${tokenBPriceUsd})`, retryable: true };
+            if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+            process.exit(1);
+          }
+
+          const amounts = calculateTokenAmountsFromUsd({
+            capitalUsd: parseFloat(options.amountUsd),
+            tokenAPriceUsd,
+            tokenBPriceUsd,
             priceLower: priceInTickLower.price,
             priceUpper: priceInTickUpper.price,
-            amountA: baseAmount,
             poolInfo,
           });
+
+          base = 'MintA';
+          baseAmount = amounts.amountA;
+          otherAmount = amounts.amountB;
+          investmentUsd = parseFloat(options.amountUsd).toFixed(2);
         } else {
-          otherAmount = getAmountAFromAmountB({
-            priceLower: priceInTickLower.price,
-            priceUpper: priceInTickUpper.price,
-            amountB: baseAmount,
-            poolInfo,
-          });
+          // --amount mode: existing behavior
+          base = options.base as 'MintA' | 'MintB';
+          const baseDecimals = base === 'MintA' ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
+          baseAmount = options.raw
+            ? new BN(options.amount)
+            : new BN(uiToRaw(options.amount, baseDecimals));
+
+          if (base === 'MintA') {
+            otherAmount = getAmountBFromAmountA({
+              priceLower: priceInTickLower.price,
+              priceUpper: priceInTickUpper.price,
+              amountA: baseAmount,
+              poolInfo,
+            });
+          } else {
+            otherAmount = getAmountAFromAmountB({
+              priceLower: priceInTickLower.price,
+              priceUpper: priceInTickUpper.price,
+              amountB: baseAmount,
+              poolInfo,
+            });
+          }
         }
 
         // Apply slippage to otherAmountMax
@@ -258,16 +318,8 @@ function createPositionsOpenCommand(): Command {
         const slippageMultiplier = 10000 + slippageBps;
         const otherAmountMax = otherAmount.mul(new BN(slippageMultiplier)).div(new BN(10000));
 
+        const decimals = base === 'MintA' ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
         const otherDecimals = base === 'MintA' ? poolInfo.mintDecimalsB : poolInfo.mintDecimalsA;
-
-        // Resolve token symbols from API
-        let symbolA = 'MintA';
-        let symbolB = 'MintB';
-        const poolResult = await api.getPoolInfo(options.pool);
-        if (poolResult.ok) {
-          symbolA = poolResult.value.token_a.symbol || symbolA;
-          symbolB = poolResult.value.token_b.symbol || symbolB;
-        }
         const baseSymbol = base === 'MintA' ? symbolA : symbolB;
         const otherSymbol = base === 'MintA' ? symbolB : symbolA;
 
@@ -280,6 +332,12 @@ function createPositionsOpenCommand(): Command {
           const requiredA = base === 'MintA' ? baseAmount : otherAmountMax;
           const requiredB = base === 'MintA' ? otherAmountMax : baseAmount;
 
+          const amountAUi = rawToUi((base === 'MintA' ? baseAmount : otherAmountMax).toString(), poolInfo.mintDecimalsA);
+          const amountBUi = rawToUi((base === 'MintA' ? otherAmountMax : baseAmount).toString(), poolInfo.mintDecimalsB);
+          const amountAUsd = tokenAPriceUsd > 0 ? (parseFloat(amountAUi) * tokenAPriceUsd).toFixed(2) : undefined;
+          const amountBUsd = tokenBPriceUsd > 0 ? (parseFloat(amountBUi) * tokenBPriceUsd).toFixed(2) : undefined;
+          const totalUsd = amountAUsd && amountBUsd ? (parseFloat(amountAUsd) + parseFloat(amountBUsd)).toFixed(2) : undefined;
+
           const previewData = {
             poolAddress: options.pool,
             tickLower,
@@ -290,6 +348,12 @@ function createPositionsOpenCommand(): Command {
             baseToken: baseSymbol,
             otherAmount: rawToUi(otherAmountMax.toString(), otherDecimals),
             otherToken: otherSymbol,
+            ...(investmentUsd ? { investmentUsd } : {}),
+            ...(totalUsd ? {
+              tokenA: { symbol: symbolA, amount: amountAUi, usd: amountAUsd },
+              tokenB: { symbol: symbolB, amount: amountBUi, usd: amountBUsd },
+              totalUsd,
+            } : {}),
           };
 
           // Check wallet balance

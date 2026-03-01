@@ -475,6 +475,118 @@ export function estimateApr(params: {
 }
 
 /**
+ * Calculate token A and B amounts from a USD investment amount.
+ * Uses binary search to find the optimal token split that matches the target USD value
+ * within the given CLMM price range.
+ *
+ * @param params.capitalUsd Total USD amount to invest
+ * @param params.tokenAPriceUsd USD price of token A
+ * @param params.tokenBPriceUsd USD price of token B
+ * @param params.priceLower Lower price bound of the position
+ * @param params.priceUpper Upper price bound of the position
+ * @param params.poolInfo Pool layout information (contains current price via sqrtPriceX64)
+ * @returns { amountA, amountB } in raw (smallest unit) format
+ */
+export function calculateTokenAmountsFromUsd(params: {
+  capitalUsd: number;
+  tokenAPriceUsd: number;
+  tokenBPriceUsd: number;
+  priceLower: Decimal | number | string;
+  priceUpper: Decimal | number | string;
+  poolInfo: IPoolLayout;
+}): { amountA: BN; amountB: BN } {
+  const { capitalUsd, tokenAPriceUsd, tokenBPriceUsd, priceLower, priceUpper, poolInfo } = params;
+
+  const capital = new Decimal(capitalUsd);
+  const priceA = new Decimal(tokenAPriceUsd);
+  const priceB = new Decimal(tokenBPriceUsd);
+
+  if (priceA.lte(0) || priceB.lte(0)) {
+    throw new Error('Token USD prices must be greater than 0');
+  }
+
+  const decimalsA = poolInfo.mintDecimalsA;
+  const decimalsB = poolInfo.mintDecimalsB;
+
+  // Get current price from pool state
+  const currentPrice = TickMath.getPriceFromTick({
+    tick: poolInfo.tickCurrent,
+    decimalsA,
+    decimalsB,
+  });
+
+  const priceLowerDec = new Decimal(priceLower);
+  const priceUpperDec = new Decimal(priceUpper);
+
+  // Case 1: Current price is below the range → all tokenA
+  if (currentPrice.lte(priceLowerDec)) {
+    const amountAUi = capital.div(priceA);
+    const amountA = new BN(amountAUi.mul(new Decimal(10).pow(decimalsA)).toFixed(0));
+    return { amountA, amountB: new BN(0) };
+  }
+
+  // Case 2: Current price is above the range → all tokenB
+  if (currentPrice.gte(priceUpperDec)) {
+    const amountBUi = capital.div(priceB);
+    const amountB = new BN(amountBUi.mul(new Decimal(10).pow(decimalsB)).toFixed(0));
+    return { amountA: new BN(0), amountB };
+  }
+
+  // Case 3: Current price is within range → binary search
+  let low = new Decimal(0);
+  let high = capital.div(priceA).mul(2); // Upper bound: all capital in tokenA × 2
+  let bestAmountA = high.div(2);
+
+  const tolerance = new Decimal(0.0001); // 0.01% tolerance
+  const maxIterations = 50;
+
+  for (let i = 0; i < maxIterations; i++) {
+    const amountAUi = bestAmountA;
+    const amountARaw = new BN(amountAUi.mul(new Decimal(10).pow(decimalsA)).toFixed(0));
+
+    // Use SDK to calculate the correlated amountB
+    const amountBRaw = getAmountBFromAmountA({
+      priceLower,
+      priceUpper,
+      amountA: amountARaw,
+      poolInfo,
+    });
+
+    const amountBUi = new Decimal(amountBRaw.toString()).div(new Decimal(10).pow(decimalsB));
+
+    // Calculate total USD value
+    const totalUsd = amountAUi.mul(priceA).plus(amountBUi.mul(priceB));
+    const diff = totalUsd.minus(capital);
+    const diffRatio = capital.gt(0) ? diff.div(capital).abs() : new Decimal(0);
+
+    // Converged
+    if (diffRatio.lte(tolerance)) {
+      return { amountA: amountARaw, amountB: amountBRaw };
+    }
+
+    // Adjust search bounds
+    if (totalUsd.gt(capital)) {
+      high = bestAmountA;
+    } else {
+      low = bestAmountA;
+    }
+
+    bestAmountA = low.plus(high).div(2);
+  }
+
+  // Best approximation after max iterations
+  const amountARaw = new BN(bestAmountA.mul(new Decimal(10).pow(decimalsA)).toFixed(0));
+  const amountBRaw = getAmountBFromAmountA({
+    priceLower,
+    priceUpper,
+    amountA: amountARaw,
+    poolInfo,
+  });
+
+  return { amountA: amountARaw, amountB: amountBRaw };
+}
+
+/**
  * 获取 mint 对应的 token program ID
  */
 export async function getTokenProgramId(

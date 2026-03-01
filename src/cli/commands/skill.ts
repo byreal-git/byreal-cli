@@ -26,29 +26,44 @@ npm install -g @byreal/byreal-cli
 byreal-cli --version
 \`\`\`
 
+## Output Format Rule (CRITICAL)
+
+- **\`-o json\`**: Use ONLY when you need to parse the result for further logic (e.g., extract pool address to feed into the next command, compare values programmatically).
+- **No \`-o json\`** (default table/chart): Use when the user wants to **see** results. The CLI has built-in tables, K-line charts, and formatted analysis output — do NOT fetch JSON and re-draw them yourself.
+
+**Rule of thumb**: If the user says "show me", "look at", "check", "how is the trend" → **omit \`-o json\`**, let the CLI render directly. If you need the data for a subsequent command → use \`-o json\`.
+
+Examples:
+- "帮我看一下黄金池子的价格走势" → \`byreal-cli pools klines <pool-id>\` (NO \`-o json\`, CLI draws K-line chart)
+- "分析一下这个池子" → \`byreal-cli pools analyze <pool-id>\` (NO \`-o json\`, CLI renders analysis table)
+- Need pool address for next step → \`byreal-cli pools list -o json\` (YES \`-o json\`, you need to parse the address)
+
 ## Quick Reference
 
-**Important**: Use \`-o json\` to get structured JSON output for programmatic/LLM consumption. Without \`-o json\`, output is human-readable (tables, charts).
+Add \`-o json\` only when you need to parse data for the next step. **Omit it when displaying to the user.**
 
 | User Intent | Command |
 |-------------|---------|
-| List pools | \`byreal-cli pools list -o json\` |
-| Pool details | \`byreal-cli pools info <pool-id> -o json\` |
-| List tokens | \`byreal-cli tokens list -o json\` |
-| Global stats | \`byreal-cli overview -o json\` |
-| K-line data | \`byreal-cli pools klines <pool-id> -o json\` |
-| Swap preview | \`byreal-cli swap execute --input-mint <mint> --output-mint <mint> --amount <amount> --dry-run -o json\` |
-| Swap execute | \`byreal-cli swap execute --input-mint <mint> --output-mint <mint> --amount <amount> --confirm -o json\` |
-| List positions | \`byreal-cli positions list -o json\` |
-| Open position | \`byreal-cli positions open --pool <addr> --price-lower <p> --price-upper <p> --base <token> --amount <amount> --confirm -o json\` |
-| Close position | \`byreal-cli positions close --nft-mint <addr> --confirm -o json\` |
-| Claim fees | \`byreal-cli positions claim --nft-mints <addrs> --confirm -o json\` |
-| Analyze pool | \`byreal-cli pools analyze <pool-id> -o json\` |
-| Analyze position | \`byreal-cli positions analyze <nft-mint> -o json\` |
-| Wallet address | \`byreal-cli wallet address -o json\` |
-| Wallet balance | \`byreal-cli wallet balance -o json\` |
+| List pools | \`byreal-cli pools list\` |
+| Pool details | \`byreal-cli pools info <pool-id>\` |
+| Pool analysis | \`byreal-cli pools analyze <pool-id>\` |
+| K-line / price trend | \`byreal-cli pools klines <pool-id>\` |
+| List tokens | \`byreal-cli tokens list\` |
+| Global stats | \`byreal-cli overview\` |
+| Swap preview | \`byreal-cli swap execute --input-mint <mint> --output-mint <mint> --amount <amount> --dry-run\` |
+| Swap execute | \`byreal-cli swap execute --input-mint <mint> --output-mint <mint> --amount <amount> --confirm\` |
+| List positions | \`byreal-cli positions list\` |
+| Open position (USD) | \`byreal-cli positions open --pool <addr> --price-lower <p> --price-upper <p> --amount-usd <usd> --confirm\` |
+| Open position (token) | \`byreal-cli positions open --pool <addr> --price-lower <p> --price-upper <p> --base <token> --amount <amount> --confirm\` |
+| Close position | \`byreal-cli positions close --nft-mint <addr> --confirm\` |
+| Claim fees | \`byreal-cli positions claim --nft-mints <addrs> --confirm\` |
+| Analyze position | \`byreal-cli positions analyze <nft-mint>\` |
+| Wallet address | \`byreal-cli wallet address\` |
+| Wallet balance | \`byreal-cli wallet balance\` |
 | Set keypair | \`byreal-cli wallet set <keypair-path>\` |
-| Config list | \`byreal-cli config list -o json\` |
+| Config list | \`byreal-cli config list\` |
+| Config get | \`byreal-cli config get <key>\` |
+| Config set | \`byreal-cli config set <key> <value>\` |
 | First-time setup | \`byreal-cli setup\` |
 
 ## Commands
@@ -103,10 +118,10 @@ Options:
 Examples:
 \`\`\`bash
 # Auto-detect base token
-byreal-cli pools klines 86zmTi...xVkt --interval 1h -o json
+byreal-cli pools klines 9GTj99g9tbz9U6UYDsX6YeRTgUnkYG6GTnHv3qLa5aXq --interval 1h -o json
 
 # Specify token explicitly
-byreal-cli pools klines 86zmTi...xVkt --token D6xWgR...pump --interval 15m -o json
+byreal-cli pools klines 9GTj99g9tbz9U6UYDsX6YeRTgUnkYG6GTnHv3qLa5aXq --token So11111111111111111111111111111111111111112 --interval 15m -o json
 \`\`\`
 
 ### tokens list
@@ -257,7 +272,7 @@ Options:
 \`\`\`
 
 ### positions open
-Open a new CLMM position. **All amounts use UI format** — decimals are auto-resolved.
+Open a new CLMM position. Supports two modes: specify token amount (--amount) or USD investment (--amount-usd).
 
 \`\`\`bash
 byreal-cli positions open [options]
@@ -266,25 +281,35 @@ Options:
   --pool <address>         Pool address (required)
   --price-lower <price>    Lower price bound (required)
   --price-upper <price>    Upper price bound (required)
-  --base <token>           Base token: MintA or MintB (required)
-  --amount <amount>        Amount of base token, UI format (required). Decimals auto-resolved.
+  --base <token>           Base token: MintA or MintB (required with --amount)
+  --amount <amount>        Amount of base token, UI format. Decimals auto-resolved.
+  --amount-usd <usd>       Investment amount in USD. Auto-calculates token A/B split.
+                           Mutually exclusive with --amount and --base.
   --slippage <bps>         Slippage tolerance in basis points
   --raw                    Amount is already in raw (smallest unit) format
   --dry-run                Preview the position without opening
   --confirm                Open the position
 \`\`\`
 
+**Two modes**:
+- \`--amount + --base\`: You specify exact token amount. CLI calculates the paired token.
+- \`--amount-usd\`: You specify USD budget. CLI auto-splits into tokenA + tokenB based on current price and range. Response includes USD breakdown per token.
+
 **Balance Check**: \`--dry-run\` automatically checks if your wallet has sufficient balance for both tokens. If balance is insufficient, the response includes \`balanceWarnings\` (JSON) or a red warning (table) with the deficit amount and a suggested \`swap execute\` command.
 
 Examples:
 \`\`\`bash
-# Preview opening a position (includes balance check)
+# By USD amount (recommended for "开价值 100U 的仓位" scenarios)
+byreal-cli positions open --pool <pool-address> \\
+  --price-lower 4000 --price-upper 7000 --amount-usd 100 --dry-run -o json
+
+# By token amount (existing behavior)
 byreal-cli positions open --pool <pool-address> \\
   --price-lower 100 --price-upper 200 --base MintA --amount 10 --dry-run -o json
 
 # Execute open
 byreal-cli positions open --pool <pool-address> \\
-  --price-lower 100 --price-upper 200 --base MintA --amount 10 --confirm -o json
+  --price-lower 4000 --price-upper 7000 --amount-usd 100 --confirm -o json
 \`\`\`
 
 ### positions close
@@ -319,22 +344,23 @@ Comprehensive pool analysis: metrics, volatility, multi-range APR comparison, ri
 byreal-cli pools analyze <pool-id> [options]
 
 Options:
-  --amount <usd>       Simulated investment amount in USD (default: 1000)
-  --ranges <percents>  Custom range percentages, comma-separated (default: 1,5,10,20,50)
+  --amount <usd>       Simulated investment amount in USD (default: wallet balance, fallback 1000)
+  --ranges <percents>  Custom range percentages, comma-separated (default: 1,2,3,5,8,10,15,20,35,50)
 \`\`\`
 
 Response includes:
 - **pool**: Basic info (address, pair, category, currentPrice, feeRate, tickSpacing)
 - **metrics**: TVL, volume (24h/7d), fees (24h/7d), feeApr24h, volumeToTvl ratio
-- **volatility**: Price changes (1h/24h/7d), 24h price range and range percent
+- **volatility**: 24h price range (low/high) and dayPriceRangePercent
 - **rewards**: Active reward programs (token, endTime)
 - **rangeAnalysis**: For each range %, shows priceLower/Upper, estimated fee APR, in-range likelihood, rebalance frequency
-- **riskFactors**: TVL risk, volatility risk, category risk, and human-readable summary
-- **investmentProjection**: Daily/weekly/monthly fee estimates for given investment amount
+- **riskFactors**: TVL risk, volatility risk, and human-readable summary
+- **wallet**: Wallet address, balanceUsd, and optional low-balance warning (omitted if wallet not configured)
+- **investmentProjection**: amountUsd, rangePercent, priceLower/priceUpper, daily/weekly/monthly fee estimates
 
 Examples:
 \`\`\`bash
-# Default analysis (1000 USD, ranges: 1,5,10,20,50)
+# Default analysis (wallet balance or 1000 USD, ranges: 1,2,3,5,8,10,15,20,35,50)
 byreal-cli pools analyze 9GTj99g9tbz9U6UYDsX6YeRTgUnkYG6GTnHv3qLa5aXq -o json
 
 # Custom amount and ranges
@@ -355,14 +381,47 @@ Response includes:
 - **poolContext**: feeApr24h, volume24h, tvl, priceChange24h
 - **unclaimedFees**: tokenA and tokenB unclaimed fee amounts
 
-## Workflow: Analyze → Open Position
+## Wallet Check
 
-Recommended workflow for informed position opening:
+Before executing any command that requires a wallet (swap, positions, wallet balance, etc.), **always check wallet configuration first**:
 
-1. **Find pools**: \`byreal-cli pools list --sort-field apr24h -o json\`
-2. **Analyze pool**: \`byreal-cli pools analyze <pool-id> -o json\` — get full analysis
-3. **Interpret rangeAnalysis**: Conservative → larger range (20-50%), Aggressive → smaller range (1-5%)
-4. **Check riskFactors**: Evaluate if TVL, volatility, and category risks are acceptable
+\`\`\`bash
+byreal-cli wallet address
+\`\`\`
+
+- If it returns an address → wallet is configured, proceed.
+- If it returns \`WALLET_NOT_CONFIGURED\` → tell the user to run \`byreal-cli setup\` first.
+
+Do NOT attempt wallet-required operations without confirming the wallet is configured.
+
+## Workflow: Finding Investment Opportunities
+
+When the user asks about investment opportunities, potential pools, or yield farming options:
+
+1. **List top pools**: \`byreal-cli pools list --sort-field apr24h -o json\` — get candidates sorted by APR
+2. **Analyze top candidates**: For the top 2-3 pools, run \`byreal-cli pools analyze <pool-id> -o json\` to get detailed metrics (APR, volatility, risk, range analysis). **Do NOT skip this step** — \`pools list\` only shows basic info; \`pools analyze\` provides the detailed evaluation needed for informed recommendations.
+3. **Compare and recommend**: Use the analysis data (feeApr, risk summary, rangeAnalysis) to compare pools and give the user concrete recommendations with reasoning.
+
+## Workflow: Open Position by USD Amount (Recommended)
+
+When the user specifies a USD budget (e.g., "开价值 100U 的仓位", "invest $500"):
+
+1. **Analyze pool**: \`byreal-cli pools analyze <pool-id> -o json\` — get full analysis
+2. **Choose range** from rangeAnalysis (Conservative ±30%, Balanced ±15%, Aggressive ±5%)
+3. **Preview**: \`byreal-cli positions open --pool <id> --price-lower <p> --price-upper <p> --amount-usd <usd> --dry-run -o json\`
+   - CLI auto-calculates how much of each token is needed
+   - Response includes: tokenA/B amounts, USD breakdown per token, balance warnings
+4. **If insufficient balance**: Check \`wallet balance\`, swap from ANY available token (SOL, USDC, etc.)
+5. **Execute**: \`byreal-cli positions open ... --amount-usd <usd> --confirm -o json\`
+
+## Workflow: Open Position by Token Amount
+
+When the user specifies an exact token amount:
+
+1. **Analyze pool**: \`byreal-cli pools analyze <pool-id> -o json\`
+2. **Choose range**: Conservative → larger range (20-50%), Aggressive → smaller range (1-5%)
+3. **Check wallet balance**: \`byreal-cli wallet balance -o json\` — see ALL available tokens
+4. **Plan funding**: Swap from ANY token in the wallet (SOL, USDC, USDT, etc.) — not just the pool's own tokens.
 5. **Preview position**: \`byreal-cli positions open --pool <id> --price-lower <p> --price-upper <p> --base MintA --amount <amt> --dry-run -o json\`
 6. **Execute**: \`byreal-cli positions open ... --confirm -o json\`
 
@@ -378,15 +437,18 @@ You do NOT need to pass token decimals or convert amounts manually. Use \`--raw\
 
 When \`positions open --dry-run\` reports insufficient balance (\`balanceWarnings\` in JSON), follow this workflow:
 
-1. **Read the deficit**: Check which token(s) are insufficient and the exact deficit amount
-2. **Decide swap source**: Choose which token to swap FROM. Recommended strategy:
-   - Prefer swapping from the token with the highest available balance
-   - Prefer stablecoins (USDC, USDT) as source when possible
-   - If unsure, ask the user which token to use as source
-3. **Execute swap**: Use \`byreal-cli swap execute --input-mint <source-mint> --output-mint <deficit-token-mint> --amount <deficit-amount> --dry-run\` to preview, then \`--confirm\` to execute
-4. **Re-run open**: After swap completes, re-run \`positions open --dry-run\` to verify balances, then \`--confirm\`
+1. **Check full wallet**: \`byreal-cli wallet balance -o json\` — see ALL tokens and their balances
+2. **Read the deficit**: Check which token(s) are insufficient and the exact deficit amount
+3. **Decide swap source**: Choose which token to swap FROM. **Consider ALL tokens in the wallet**, not just the pool's own tokens:
+   - Any token with sufficient balance can be used: SOL, USDC, USDT, or any other SPL token
+   - Prefer swapping from the token with the highest USD-equivalent balance
+   - Prefer stablecoins (USDC, USDT) or SOL as source for lower slippage
+   - If the user has SOL but not USDT, swap SOL → needed token (do NOT tell the user they need USDT first)
+   - If unsure which token to use, ask the user
+4. **Execute swap**: \`byreal-cli swap execute --input-mint <source-mint> --output-mint <deficit-token-mint> --amount <deficit-amount> --dry-run -o json\` to preview, then \`--confirm\`
+5. **Re-run open**: After swap completes, re-run \`positions open --dry-run\` to verify balances, then \`--confirm\`
 
-**Important**: The CLI only reports the deficit — the LLM must decide the swap strategy (source token, amount, slippage). Do NOT assume a fixed swap path.
+**Important**: The swap source can be ANY token in the wallet. Do NOT default to only using the pool's own tokens. Always check \`wallet balance\` to see what's available.
 
 ## Output Format
 
@@ -458,6 +520,8 @@ byreal-cli catalog show dex.pool.list -o json
 | wallet.set | Set keypair path |
 | wallet.reset | Remove keypair config |
 | config.list | List all config values |
+| config.get | Get a specific config value |
+| config.set | Set a config value |
 | setup | Interactive first-time setup |
 
 ## Global Options
@@ -473,13 +537,15 @@ byreal-cli catalog show dex.pool.list -o json
 
 ## Hard Constraints (Do NOT violate)
 
-1. **Always use -o json** when processing data programmatically
-2. **Never request or display private keys** - use keypair file paths only
-3. **For write operations**: Always preview with --dry-run first, then --confirm
-4. **Large amounts (> $10,000)**: Require explicit user confirmation
-5. **High slippage (> 200 bps)**: Warn user before proceeding
-6. **Token amounts use UI format** - pass amounts as human-readable values (e.g., 0.1 for 0.1 SOL). Never manually convert to raw/lamport units. The CLI handles all decimals internally.
-7. **No need to pass token decimals** - the CLI auto-resolves decimals from mint address
+1. **\`-o json\` only for parsing** — when showing results to the user (charts, tables, analysis), **omit it** and let the CLI render directly. Never fetch JSON then re-draw charts/tables yourself.
+2. **Never truncate on-chain data** — always display the FULL string for: transaction signatures (txid), mint addresses, pool addresses, NFT addresses, wallet addresses. Never use \`xxx...yyy\` abbreviation.
+3. **Never request or display private keys** - use keypair file paths only
+4. **For write operations**: Always preview with --dry-run first, then --confirm
+5. **Large amounts (> $10,000)**: Require explicit user confirmation
+6. **High slippage (> 200 bps)**: Warn user before proceeding
+7. **Token amounts use UI format** - pass amounts as human-readable values (e.g., 0.1 for 0.1 SOL). Never manually convert to raw/lamport units. The CLI handles all decimals internally.
+8. **No need to pass token decimals** - the CLI auto-resolves decimals from mint address
+9. **Check wallet before write ops** — run \`wallet address\` before any wallet-required command
 
 ## Error Handling
 
