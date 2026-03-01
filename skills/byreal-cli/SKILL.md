@@ -20,10 +20,26 @@ byreal-cli catalog list
 byreal-cli catalog show <capability-id>
 ```
 
-## Setup
+## Installation
 
 ```bash
-npm install -g @byreal/byreal-cli
+# Check if already installed
+which byreal-cli && byreal-cli --version
+
+# Install (one-time)
+npm install -g github:byreal-git/byreal-cli
+```
+
+## Check for Updates
+
+```bash
+byreal-cli update check
+```
+
+If an update is available:
+
+```bash
+byreal-cli update install
 ```
 
 ## Hard Constraints

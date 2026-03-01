@@ -15,6 +15,8 @@ import { createConfigCommand } from './cli/commands/config.js';
 import { createSetupCommand } from './cli/commands/setup.js';
 import { createSwapCommand } from './cli/commands/swap.js';
 import { createPositionsCommand } from './cli/commands/positions.js';
+import { createUpdateCommand } from './cli/commands/update.js';
+import { printUpdateNotice } from './core/update-check.js';
 
 // ============================================
 // Main Program
@@ -52,6 +54,7 @@ program.addCommand(createConfigCommand());
 program.addCommand(createSetupCommand());
 program.addCommand(createSwapCommand());
 program.addCommand(createPositionsCommand());
+program.addCommand(createUpdateCommand());
 
 // ============================================
 // Error Handling
@@ -74,6 +77,7 @@ program.on('command:*', () => {
 async function main() {
   try {
     await program.parseAsync(process.argv);
+    printUpdateNotice();
   } catch (error) {
     if (error instanceof Error) {
       console.error(chalk.red(`\nError: ${error.message}`));

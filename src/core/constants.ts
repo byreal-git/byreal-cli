@@ -10,6 +10,7 @@ import type { KeySource, ByrealConfig } from './types.js';
 
 export const VERSION = '0.1.0';
 export const CLI_NAME = 'byreal-cli';
+export const GITHUB_REPO = 'byreal-git/byreal-cli';
 
 // ============================================
 // API Configuration

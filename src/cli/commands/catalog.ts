@@ -291,6 +291,24 @@ const CAPABILITIES: Capability[] = [
       { name: 'confirm', type: 'boolean', required: false, description: 'Execute the claim' },
     ],
   },
+  {
+    id: 'update.check',
+    name: 'Update Check',
+    description: 'Check for available CLI updates from GitHub Releases',
+    category: 'query',
+    auth_required: false,
+    command: 'byreal-cli update check',
+    params: [],
+  },
+  {
+    id: 'update.install',
+    name: 'Update Install',
+    description: 'Install the latest CLI version from GitHub',
+    category: 'execute',
+    auth_required: false,
+    command: 'byreal-cli update install',
+    params: [],
+  },
 ];
 
 // ============================================

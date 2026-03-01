@@ -16,14 +16,25 @@ const SKILL_DOC = `# Byreal CLI - Full Documentation (v${VERSION})
 
 Byreal DEX (Solana) all-in-one CLI: query pools/tokens/TVL, analyze pool APR & risk, open/close/claim CLMM positions, token swap, wallet & balance management. Use when user mentions Byreal, LP, liquidity, pools, DeFi positions, token swap, or Solana DEX operations.
 
-## Setup
+## Installation
 
 \`\`\`bash
-# First-time installation (run once per session)
-npm install -g @byreal/byreal-cli
+# Check if already installed
+which byreal-cli && byreal-cli --version
 
-# Verify installation
-byreal-cli --version
+# Install (one-time)
+npm install -g github:byreal-git/byreal-cli
+\`\`\`
+
+## Check for Updates
+
+\`\`\`bash
+byreal-cli update check
+\`\`\`
+
+If an update is available:
+\`\`\`bash
+byreal-cli update install
 \`\`\`
 
 ## Capability Discovery
@@ -64,6 +75,8 @@ byreal-cli catalog show dex.pool.list
 | config.get | Get a specific config value |
 | config.set | Set a config value |
 | setup | Interactive first-time setup |
+| update.check | Check for CLI updates |
+| update.install | Install latest CLI version |
 
 ## Global Options
 
@@ -139,6 +152,8 @@ You do NOT need to pass token decimals or convert amounts manually. Use \`--raw\
 | Config get | \`byreal-cli config get <key>\` |
 | Config set | \`byreal-cli config set <key> <value>\` |
 | First-time setup | \`byreal-cli setup\` |
+| Check for updates | \`byreal-cli update check\` |
+| Install update | \`byreal-cli update install\` |
 
 ## Commands
 
