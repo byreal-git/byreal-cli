@@ -2,13 +2,19 @@
 
 AI-friendly CLI for [Byreal](https://byreal.io) CLMM DEX on Solana.
 
-## Install
+## AI Integration
+
+Install as a Skill:
 
 ```bash
-npm install -g https://github.com/byreal-git/byreal-cli/releases/latest/download/byreal-cli.tgz
+npx skills add byreal-git/byreal-cli
 ```
 
-Requires Node.js >= 18.
+Install cli only:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/byreal-git/byreal-cli/main/install.sh | bash
+```
 
 ## Features
 
@@ -47,15 +53,3 @@ All commands support `-o json` for structured output.
 byreal-cli update check
 byreal-cli update install
 ```
-
-## AI Integration
-
-Install as a [Skill](https://github.com/vercel/skills) for Claude Code / Cursor / Windsurf:
-
-```bash
-npx skills add byreal-git/byreal-cli
-```
-
-## License
-
-MIT

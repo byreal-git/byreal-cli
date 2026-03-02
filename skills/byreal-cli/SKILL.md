@@ -27,7 +27,7 @@ byreal-cli catalog show <capability-id>
 which byreal-cli && byreal-cli --version
 
 # Install latest release (one-time)
-npm install -g https://github.com/byreal-git/byreal-cli/releases/latest/download/byreal-cli.tgz
+curl -fsSL https://raw.githubusercontent.com/byreal-git/byreal-cli/main/install.sh | bash
 ```
 
 ## Check for Updates
