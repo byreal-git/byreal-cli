@@ -222,29 +222,41 @@ function createSwapExecuteCommand(): Command {
           process.exit(1);
         }
 
-        // Verify transaction on-chain
+        // Verify transaction on-chain via getSignatureStatuses polling (10s timeout)
         const execValue = executeResult.value as { signatures?: string[]; txSignature?: string; state?: string };
         const signatures = execValue.signatures
           || (execValue.txSignature ? [execValue.txSignature] : []);
 
-        let confirmed = true;
-        if (signatures.length > 0) {
-          const connection = getConnection();
-          try {
-            for (const sig of signatures) {
-              const result = await connection.confirmTransaction(
-                {
-                  signature: sig,
-                  blockhash: signedTx.message.recentBlockhash,
-                  lastValidBlockHeight: (await connection.getLatestBlockhash()).lastValidBlockHeight,
-                },
-                'confirmed'
-              );
+        if (signatures.length === 0) {
+          const errMsg = 'No transaction signature returned from execute API';
+          if (format === 'json') {
+            outputErrorJson({ code: 'TRANSACTION_FAILED', type: 'SYSTEM', message: errMsg, retryable: false });
+          } else {
+            console.error(chalk.red(`\nError: ${errMsg}`));
+          }
+          process.exit(1);
+        }
 
-              if (result.value.err) {
+        const CONFIRM_TIMEOUT_MS = 10_000;
+        const POLL_INTERVAL_MS = 2_000;
+        let confirmed = true;
+
+        const connection = getConnection();
+        const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
+        let allConfirmed = false;
+
+        while (Date.now() < deadline) {
+          try {
+            const { value: statuses } = await connection.getSignatureStatuses(signatures);
+
+            for (let i = 0; i < statuses.length; i++) {
+              const status = statuses[i];
+              if (!status) continue;
+
+              if (status.err) {
                 const txErr = transactionError(
-                  `Transaction confirmed but failed on-chain: ${JSON.stringify(result.value.err)}`,
-                  sig
+                  `Transaction confirmed but failed on-chain: ${JSON.stringify(status.err)}`,
+                  signatures[i]
                 );
                 if (format === 'json') {
                   outputErrorJson(txErr.toJSON());
@@ -253,22 +265,22 @@ function createSwapExecuteCommand(): Command {
                 }
                 process.exit(1);
               }
-            }
-          } catch (e) {
-            const message = (e as Error).message || 'Unknown error';
-            if (message.includes('timeout') || message.includes('Timeout')) {
-              // Timeout: transaction may still succeed, show unconfirmed state
-              confirmed = false;
-            } else {
-              const txErr = transactionError(message, signatures[0]);
-              if (format === 'json') {
-                outputErrorJson(txErr.toJSON());
-              } else {
-                outputErrorTable(txErr.toJSON());
+
+              if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                allConfirmed = true;
               }
-              process.exit(1);
             }
+
+            if (allConfirmed) break;
+          } catch {
+            // RPC error during polling — continue retrying until deadline
           }
+
+          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        }
+
+        if (!allConfirmed) {
+          confirmed = false;
         }
 
         if (format === 'json') {

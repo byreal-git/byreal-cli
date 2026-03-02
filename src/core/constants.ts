@@ -39,6 +39,9 @@ export const API_ENDPOINTS = {
   // Position endpoints
   POSITIONS_LIST: '/byreal/api/dex/v2/position/list',
   FEE_ENCODE: '/byreal/api/dex/v2/incentive/encode-fee',
+
+  // Fee endpoints
+  AUTO_FEE: '/byreal/api/dex/v2/main/auto-fee',
 } as const;
 
 // ============================================

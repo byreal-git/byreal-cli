@@ -601,6 +601,29 @@ export async function getKlines(
 // Swap API Functions
 // ============================================
 
+const DEFAULT_CU_PRICE = 100000; // Turbo-level fallback (micro-lamports/CU)
+
+/**
+ * Fetch current CU price from auto-fee API (Turbo = "high" tier)
+ * Falls back to hardcoded default on failure.
+ */
+async function fetchCuPrice(): Promise<number> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await apiClient.get<any>(API_ENDPOINTS.AUTO_FEE);
+    if (result.ok) {
+      // DEX v2 format: { result: { data: { high, medium, extreme } } }
+      // or flat: { high, medium, extreme }
+      const data = result.value?.result?.data ?? result.value;
+      const high = data?.high;
+      if (typeof high === 'number' && high > 0) return high;
+    }
+  } catch {
+    // ignore — use fallback
+  }
+  return DEFAULT_CU_PRICE;
+}
+
 /**
  * Get swap quote from router
  * Router 格式: result.result.data (双层嵌套)
@@ -608,6 +631,8 @@ export async function getKlines(
 export async function getSwapQuote(
   params: SwapQuoteParams
 ): Promise<Result<SwapQuote, ByrealError>> {
+  const SOL_MINT = 'So11111111111111111111111111111111111111112';
+  const cuPrice = await fetchCuPrice();
   const result = await apiClient.post<ApiSwapQuoteResponse>(API_ENDPOINTS.SWAP_QUOTE, {
     inputMint: params.inputMint,
     outputMint: params.outputMint,
@@ -615,6 +640,14 @@ export async function getSwapQuote(
     swapMode: params.swapMode,
     slippageBps: String(params.slippageBps),
     userPublicKey: params.userPublicKey,
+    // SOL wrapping: tell backend to create WSOL ATA if needed
+    ...(params.inputMint === SOL_MINT ? { createInputAta: true } : {}),
+    ...(params.outputMint === SOL_MINT ? { createOutputAta: true } : {}),
+    // Fee & broadcast params (match frontend defaults for reliable tx landing)
+    broadcastMode: 'priority',
+    feeType: 'maxCap',
+    feeAmount: '10000000',   // 0.01 SOL max cap
+    cuPrice: String(cuPrice),
   });
 
   if (!result.ok) return result;
