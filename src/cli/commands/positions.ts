@@ -6,27 +6,27 @@
  * - positions claim: Claim fees (API)
  */
 
-import { Command } from 'commander';
-import chalk from 'chalk';
-import BN from 'bn.js';
-import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-import type { GlobalOptions } from '../../core/types.js';
-import { api } from '../../api/endpoints.js';
-import { resolveKeypair, resolveAddress } from '../../auth/keypair.js';
-import { uiToRaw, rawToUi } from '../../core/amounts.js';
-import { getConnection, getSlippageBps } from '../../core/solana.js';
+import { Command } from "commander";
+import chalk from "chalk";
+import BN from "bn.js";
+import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import type { GlobalOptions } from "../../core/types.js";
+import { api } from "../../api/endpoints.js";
+import { resolveKeypair, resolveAddress } from "../../auth/keypair.js";
+import { uiToRaw, rawToUi } from "../../core/amounts.js";
+import { getConnection, getSlippageBps } from "../../core/solana.js";
 import {
   resolveExecutionMode,
   requireExecutionMode,
   printDryRunBanner,
   printConfirmBanner,
-} from '../../core/confirm.js';
+} from "../../core/confirm.js";
 import {
   deserializeTransaction,
   signTransaction,
   sendAndConfirmTransaction,
-} from '../../core/transaction.js';
+} from "../../core/transaction.js";
 import {
   outputJson,
   outputErrorJson,
@@ -37,21 +37,24 @@ import {
   outputPositionClaimPreview,
   outputTransactionResult,
   outputPositionAnalysisTable,
-} from '../output/formatters.js';
+} from "../output/formatters.js";
 
 // ============================================
 // positions list
 // ============================================
 
 function createPositionsListCommand(): Command {
-  return new Command('list')
-    .description('List your positions')
-    .option('--page <n>', 'Page number', '1')
-    .option('--page-size <n>', 'Page size', '20')
-    .option('--sort-field <field>', 'Sort field')
-    .option('--sort-type <type>', 'Sort direction: asc or desc')
-    .option('--pool <address>', 'Filter by pool address')
-    .option('--status <status>', 'Filter by status: 0=active, 1=closed (default: 0)')
+  return new Command("list")
+    .description("List your positions")
+    .option("--page <n>", "Page number", "1")
+    .option("--page-size <n>", "Page size", "20")
+    .option("--sort-field <field>", "Sort field")
+    .option("--sort-type <type>", "Sort direction: asc or desc")
+    .option("--pool <address>", "Filter by pool address")
+    .option(
+      "--status <status>",
+      "Filter by status: 0=active, 1=closed (default: 0)",
+    )
     .action(async (options, cmdObj: Command) => {
       const globalOptions = cmdObj.optsWithGlobals() as GlobalOptions;
       const format = globalOptions.output;
@@ -60,7 +63,7 @@ function createPositionsListCommand(): Command {
       // Resolve user address (required)
       const addrResult = resolveAddress(globalOptions.keypairPath);
       if (!addrResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(addrResult.error);
         } else {
           outputErrorTable(addrResult.error);
@@ -79,7 +82,7 @@ function createPositionsListCommand(): Command {
       });
 
       if (!result.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(result.error);
         } else {
           outputErrorTable(result.error);
@@ -87,7 +90,7 @@ function createPositionsListCommand(): Command {
         process.exit(1);
       }
 
-      if (format === 'json') {
+      if (format === "json") {
         outputJson(result.value, startTime);
       } else {
         outputPositionsTable(result.value.positions, result.value.total);
@@ -99,7 +102,95 @@ function createPositionsListCommand(): Command {
 // Balance check for open position
 // ============================================
 
-const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+
+// Well-known token symbols for display
+const KNOWN_SYMBOLS: Record<string, string> = {
+  So11111111111111111111111111111111111111112: "SOL",
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
+  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: "USDT",
+  "4SoQ8UkWfeDH47T56PA53CZCeW4KytYCiU65CwBWoJUt": "MNT",
+  D6xWgRCSHoMEB5fqPwk3p6Stxirn5ytm2WwboSTTx4oE: "PYBOBO",
+  AymATz4TCL9sWNEEV9Kvyz45CHVhDZ6kUgjTJPzLpU9P: "XAUT",
+  XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB: "TSLAx",
+  "98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g": "HYPE",
+  Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh: "NVDAx",
+  Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ: "QQQx",
+};
+
+interface WalletBalanceSummary {
+  sol: string;
+  tokens: { mint: string; symbol: string; amount: string; decimals: number }[];
+}
+
+async function fetchWalletBalanceSummary(
+  owner: PublicKey,
+): Promise<WalletBalanceSummary> {
+  const connection = getConnection();
+
+  // SOL balance
+  const lamports = await connection.getBalance(owner);
+  const solUi = (lamports / LAMPORTS_PER_SOL).toString();
+
+  // SPL + Token-2022 accounts
+  interface RawAccount {
+    mint: string;
+    amount: bigint;
+  }
+  const rawAccounts: RawAccount[] = [];
+
+  const [splResult, t22Result] = await Promise.allSettled([
+    connection.getTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }),
+    connection.getTokenAccountsByOwner(owner, {
+      programId: TOKEN_2022_PROGRAM_ID,
+    }),
+  ]);
+
+  for (const result of [splResult, t22Result]) {
+    if (result.status !== "fulfilled") continue;
+    for (const { account } of result.value.value) {
+      const data = account.data;
+      const mint = new PublicKey(data.subarray(0, 32)).toBase58();
+      const amount = data.subarray(64, 72).readBigUInt64LE();
+      if (amount === 0n) continue;
+      rawAccounts.push({ mint, amount });
+    }
+  }
+
+  // Batch fetch decimals
+  const uniqueMints = [...new Set(rawAccounts.map((a) => a.mint))];
+  const mintDecimals = new Map<string, number>();
+
+  if (uniqueMints.length > 0) {
+    for (let i = 0; i < uniqueMints.length; i += 100) {
+      const batch = uniqueMints.slice(i, i + 100);
+      const mintPubkeys = batch.map((m) => new PublicKey(m));
+      const mintInfos = await connection.getMultipleAccountsInfo(mintPubkeys);
+      for (let j = 0; j < batch.length; j++) {
+        const info = mintInfos[j];
+        if (info?.data) {
+          mintDecimals.set(batch[j], info.data[44]);
+        }
+      }
+    }
+  }
+
+  // Build token list, filtering out NFTs (decimals === 0)
+  const tokens: WalletBalanceSummary["tokens"] = [];
+
+  // Add SOL as first entry
+  tokens.push({ mint: SOL_MINT, symbol: "SOL", amount: solUi, decimals: 9 });
+
+  for (const raw of rawAccounts) {
+    const decimals = mintDecimals.get(raw.mint);
+    if (decimals === undefined || decimals === 0) continue;
+    const amountUi = (Number(raw.amount) / Math.pow(10, decimals)).toString();
+    const symbol = KNOWN_SYMBOLS[raw.mint] || raw.mint.slice(0, 8) + "...";
+    tokens.push({ mint: raw.mint, symbol, amount: amountUi, decimals });
+  }
+
+  return { sol: solUi, tokens };
+}
 
 async function getTokenBalance(owner: PublicKey, mint: string): Promise<BN> {
   const connection = getConnection();
@@ -109,12 +200,18 @@ async function getTokenBalance(owner: PublicKey, mint: string): Promise<BN> {
   }
   const mintPk = new PublicKey(mint);
   const [splResult, t22Result] = await Promise.allSettled([
-    connection.getTokenAccountsByOwner(owner, { mint: mintPk, programId: TOKEN_PROGRAM_ID }),
-    connection.getTokenAccountsByOwner(owner, { mint: mintPk, programId: TOKEN_2022_PROGRAM_ID }),
+    connection.getTokenAccountsByOwner(owner, {
+      mint: mintPk,
+      programId: TOKEN_PROGRAM_ID,
+    }),
+    connection.getTokenAccountsByOwner(owner, {
+      mint: mintPk,
+      programId: TOKEN_2022_PROGRAM_ID,
+    }),
   ]);
   let total = new BN(0);
   for (const result of [splResult, t22Result]) {
-    if (result.status !== 'fulfilled') continue;
+    if (result.status !== "fulfilled") continue;
     for (const { account } of result.value.value) {
       const amount = account.data.subarray(64, 72).readBigUInt64LE();
       total = total.add(new BN(amount.toString()));
@@ -134,10 +231,14 @@ interface BalanceWarning {
 
 async function checkBalanceSufficiency(
   owner: PublicKey,
-  mintA: string, mintB: string,
-  symbolA: string, symbolB: string,
-  decimalsA: number, decimalsB: number,
-  amountA: BN, amountB: BN,
+  mintA: string,
+  mintB: string,
+  symbolA: string,
+  symbolB: string,
+  decimalsA: number,
+  decimalsB: number,
+  amountA: BN,
+  amountB: BN,
 ): Promise<BalanceWarning[]> {
   const warnings: BalanceWarning[] = [];
   const [balanceA, balanceB] = await Promise.all([
@@ -147,7 +248,9 @@ async function checkBalanceSufficiency(
   if (balanceA.lt(amountA)) {
     const deficit = amountA.sub(balanceA);
     warnings.push({
-      token: 'A', symbol: symbolA, mint: mintA,
+      token: "A",
+      symbol: symbolA,
+      mint: mintA,
       required: rawToUi(amountA.toString(), decimalsA),
       available: rawToUi(balanceA.toString(), decimalsA),
       deficit: rawToUi(deficit.toString(), decimalsA),
@@ -156,7 +259,9 @@ async function checkBalanceSufficiency(
   if (balanceB.lt(amountB)) {
     const deficit = amountB.sub(balanceB);
     warnings.push({
-      token: 'B', symbol: symbolB, mint: mintB,
+      token: "B",
+      symbol: symbolB,
+      mint: mintB,
       required: rawToUi(amountB.toString(), decimalsB),
       available: rawToUi(balanceB.toString(), decimalsB),
       deficit: rawToUi(deficit.toString(), decimalsB),
@@ -170,18 +275,27 @@ async function checkBalanceSufficiency(
 // ============================================
 
 function createPositionsOpenCommand(): Command {
-  return new Command('open')
-    .description('Open a new CLMM position')
-    .requiredOption('--pool <address>', 'Pool address')
-    .requiredOption('--price-lower <price>', 'Lower price bound')
-    .requiredOption('--price-upper <price>', 'Upper price bound')
-    .option('--base <token>', 'Base token: MintA or MintB (required unless --amount-usd)')
-    .option('--amount <amount>', 'Amount of base token (UI amount unless --raw)')
-    .option('--amount-usd <usd>', 'Investment amount in USD (auto-calculates token split, mutually exclusive with --amount)')
-    .option('--slippage <bps>', 'Slippage tolerance in basis points')
-    .option('--raw', 'Amount is already in raw (smallest unit) format')
-    .option('--dry-run', 'Preview the position without opening')
-    .option('--confirm', 'Open the position')
+  return new Command("open")
+    .description("Open a new CLMM position")
+    .requiredOption("--pool <address>", "Pool address")
+    .requiredOption("--price-lower <price>", "Lower price bound")
+    .requiredOption("--price-upper <price>", "Upper price bound")
+    .option(
+      "--base <token>",
+      "Base token: MintA or MintB (required unless --amount-usd)",
+    )
+    .option(
+      "--amount <amount>",
+      "Amount of base token (UI amount unless --raw)",
+    )
+    .option(
+      "--amount-usd <usd>",
+      "Investment amount in USD (auto-calculates token split, mutually exclusive with --amount)",
+    )
+    .option("--slippage <bps>", "Slippage tolerance in basis points")
+    .option("--raw", "Amount is already in raw (smallest unit) format")
+    .option("--dry-run", "Preview the position without opening")
+    .option("--confirm", "Open the position")
     .action(async (options, cmdObj: Command) => {
       const globalOptions = cmdObj.optsWithGlobals() as GlobalOptions;
       const format = globalOptions.output;
@@ -189,12 +303,12 @@ function createPositionsOpenCommand(): Command {
 
       // Check execution mode
       const mode = resolveExecutionMode(options);
-      requireExecutionMode(mode, 'positions open');
+      requireExecutionMode(mode, "positions open");
 
       // Resolve keypair (required)
       const keypairResult = resolveKeypair(globalOptions.keypairPath);
       if (!keypairResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(keypairResult.error);
         } else {
           outputErrorTable(keypairResult.error);
@@ -208,26 +322,60 @@ function createPositionsOpenCommand(): Command {
       const useAmountUsd = !!options.amountUsd;
       const useTokenAmount = !!options.amount;
       if (useAmountUsd && useTokenAmount) {
-        const err = { code: 'INVALID_PARAMS', type: 'VALIDATION' as const, message: '--amount and --amount-usd are mutually exclusive. Use one or the other.', retryable: false };
-        if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+        const err = {
+          code: "INVALID_PARAMS",
+          type: "VALIDATION" as const,
+          message:
+            "--amount and --amount-usd are mutually exclusive. Use one or the other.",
+          retryable: false,
+        };
+        if (format === "json") {
+          outputErrorJson(err);
+        } else {
+          outputErrorTable(err);
+        }
         process.exit(1);
       }
       if (!useAmountUsd && !useTokenAmount) {
-        const err = { code: 'MISSING_PARAMS', type: 'VALIDATION' as const, message: 'Either --amount (with --base) or --amount-usd is required.', retryable: false };
-        if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+        const err = {
+          code: "MISSING_PARAMS",
+          type: "VALIDATION" as const,
+          message: "Either --amount (with --base) or --amount-usd is required.",
+          retryable: false,
+        };
+        if (format === "json") {
+          outputErrorJson(err);
+        } else {
+          outputErrorTable(err);
+        }
         process.exit(1);
       }
       if (useTokenAmount && !options.base) {
-        const err = { code: 'MISSING_PARAMS', type: 'VALIDATION' as const, message: '--base is required when using --amount. Specify MintA or MintB.', retryable: false };
-        if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+        const err = {
+          code: "MISSING_PARAMS",
+          type: "VALIDATION" as const,
+          message:
+            "--base is required when using --amount. Specify MintA or MintB.",
+          retryable: false,
+        };
+        if (format === "json") {
+          outputErrorJson(err);
+        } else {
+          outputErrorTable(err);
+        }
         process.exit(1);
       }
 
       try {
         // Lazy-load SDK
-        const { getChain } = await import('../../sdk/init.js');
-        const { calculateTickAlignedPriceRange } = await import('../../libs/clmm-sdk/calculate.js');
-        const { getAmountBFromAmountA, getAmountAFromAmountB, calculateTokenAmountsFromUsd } = await import('../../libs/clmm-sdk/client/utils.js');
+        const { getChain } = await import("../../sdk/init.js");
+        const { calculateTickAlignedPriceRange } =
+          await import("../../libs/clmm-sdk/calculate.js");
+        const {
+          getAmountBFromAmountA,
+          getAmountAFromAmountB,
+          calculateTokenAmountsFromUsd,
+        } = await import("../../libs/clmm-sdk/client/utils.js");
 
         const chain = getChain();
 
@@ -235,20 +383,21 @@ function createPositionsOpenCommand(): Command {
         const poolInfo = await chain.getRawPoolInfoByPoolId(options.pool);
 
         // Align prices to ticks
-        const { priceInTickLower, priceInTickUpper } = calculateTickAlignedPriceRange({
-          tickSpacing: poolInfo.tickSpacing,
-          mintDecimalsA: poolInfo.mintDecimalsA,
-          mintDecimalsB: poolInfo.mintDecimalsB,
-          startPrice: options.priceLower,
-          endPrice: options.priceUpper,
-        });
+        const { priceInTickLower, priceInTickUpper } =
+          calculateTickAlignedPriceRange({
+            tickSpacing: poolInfo.tickSpacing,
+            mintDecimalsA: poolInfo.mintDecimalsA,
+            mintDecimalsB: poolInfo.mintDecimalsB,
+            startPrice: options.priceLower,
+            endPrice: options.priceUpper,
+          });
 
         const tickLower = priceInTickLower.tick;
         const tickUpper = priceInTickUpper.tick;
 
         // Fetch pool API info (symbols + prices) — needed by both paths
-        let symbolA = 'MintA';
-        let symbolB = 'MintB';
+        let symbolA = "MintA";
+        let symbolB = "MintB";
         let tokenAPriceUsd = 0;
         let tokenBPriceUsd = 0;
         const poolApiResult = await api.getPoolInfo(options.pool);
@@ -260,7 +409,7 @@ function createPositionsOpenCommand(): Command {
         }
 
         // Compute token amounts
-        let base: 'MintA' | 'MintB';
+        let base: "MintA" | "MintB";
         let baseAmount: BN;
         let otherAmount: BN;
         let investmentUsd: string | undefined;
@@ -268,8 +417,17 @@ function createPositionsOpenCommand(): Command {
         if (useAmountUsd) {
           // --amount-usd mode: auto-calculate token split from USD
           if (tokenAPriceUsd <= 0 || tokenBPriceUsd <= 0) {
-            const err = { code: 'PRICE_UNAVAILABLE', type: 'BUSINESS' as const, message: `Cannot calculate token split: token price unavailable (${symbolA}: $${tokenAPriceUsd}, ${symbolB}: $${tokenBPriceUsd})`, retryable: true };
-            if (format === 'json') { outputErrorJson(err); } else { outputErrorTable(err); }
+            const err = {
+              code: "PRICE_UNAVAILABLE",
+              type: "BUSINESS" as const,
+              message: `Cannot calculate token split: token price unavailable (${symbolA}: $${tokenAPriceUsd}, ${symbolB}: $${tokenBPriceUsd})`,
+              retryable: true,
+            };
+            if (format === "json") {
+              outputErrorJson(err);
+            } else {
+              outputErrorTable(err);
+            }
             process.exit(1);
           }
 
@@ -282,19 +440,20 @@ function createPositionsOpenCommand(): Command {
             poolInfo,
           });
 
-          base = 'MintA';
+          base = "MintA";
           baseAmount = amounts.amountA;
           otherAmount = amounts.amountB;
           investmentUsd = parseFloat(options.amountUsd).toFixed(2);
         } else {
           // --amount mode: existing behavior
-          base = options.base as 'MintA' | 'MintB';
-          const baseDecimals = base === 'MintA' ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
+          base = options.base as "MintA" | "MintB";
+          const baseDecimals =
+            base === "MintA" ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
           baseAmount = options.raw
             ? new BN(options.amount)
             : new BN(uiToRaw(options.amount, baseDecimals));
 
-          if (base === 'MintA') {
+          if (base === "MintA") {
             otherAmount = getAmountBFromAmountA({
               priceLower: priceInTickLower.price,
               priceUpper: priceInTickUpper.price,
@@ -316,27 +475,46 @@ function createPositionsOpenCommand(): Command {
           ? parseInt(options.slippage, 10)
           : getSlippageBps();
         const slippageMultiplier = 10000 + slippageBps;
-        const otherAmountMax = otherAmount.mul(new BN(slippageMultiplier)).div(new BN(10000));
+        const otherAmountMax = otherAmount
+          .mul(new BN(slippageMultiplier))
+          .div(new BN(10000));
 
-        const decimals = base === 'MintA' ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
-        const otherDecimals = base === 'MintA' ? poolInfo.mintDecimalsB : poolInfo.mintDecimalsA;
-        const baseSymbol = base === 'MintA' ? symbolA : symbolB;
-        const otherSymbol = base === 'MintA' ? symbolB : symbolA;
+        const decimals =
+          base === "MintA" ? poolInfo.mintDecimalsA : poolInfo.mintDecimalsB;
+        const otherDecimals =
+          base === "MintA" ? poolInfo.mintDecimalsB : poolInfo.mintDecimalsA;
+        const baseSymbol = base === "MintA" ? symbolA : symbolB;
+        const otherSymbol = base === "MintA" ? symbolB : symbolA;
 
         // Dry-run: show preview + balance check
-        if (mode === 'dry-run') {
+        if (mode === "dry-run") {
           printDryRunBanner();
 
           const mintAStr = poolInfo.mintA.toBase58();
           const mintBStr = poolInfo.mintB.toBase58();
-          const requiredA = base === 'MintA' ? baseAmount : otherAmountMax;
-          const requiredB = base === 'MintA' ? otherAmountMax : baseAmount;
+          const requiredA = base === "MintA" ? baseAmount : otherAmountMax;
+          const requiredB = base === "MintA" ? otherAmountMax : baseAmount;
 
-          const amountAUi = rawToUi((base === 'MintA' ? baseAmount : otherAmountMax).toString(), poolInfo.mintDecimalsA);
-          const amountBUi = rawToUi((base === 'MintA' ? otherAmountMax : baseAmount).toString(), poolInfo.mintDecimalsB);
-          const amountAUsd = tokenAPriceUsd > 0 ? (parseFloat(amountAUi) * tokenAPriceUsd).toFixed(2) : undefined;
-          const amountBUsd = tokenBPriceUsd > 0 ? (parseFloat(amountBUi) * tokenBPriceUsd).toFixed(2) : undefined;
-          const totalUsd = amountAUsd && amountBUsd ? (parseFloat(amountAUsd) + parseFloat(amountBUsd)).toFixed(2) : undefined;
+          const amountAUi = rawToUi(
+            (base === "MintA" ? baseAmount : otherAmountMax).toString(),
+            poolInfo.mintDecimalsA,
+          );
+          const amountBUi = rawToUi(
+            (base === "MintA" ? otherAmountMax : baseAmount).toString(),
+            poolInfo.mintDecimalsB,
+          );
+          const amountAUsd =
+            tokenAPriceUsd > 0
+              ? (parseFloat(amountAUi) * tokenAPriceUsd).toFixed(2)
+              : undefined;
+          const amountBUsd =
+            tokenBPriceUsd > 0
+              ? (parseFloat(amountBUi) * tokenBPriceUsd).toFixed(2)
+              : undefined;
+          const totalUsd =
+            amountAUsd && amountBUsd
+              ? (parseFloat(amountAUsd) + parseFloat(amountBUsd)).toFixed(2)
+              : undefined;
 
           const previewData = {
             poolAddress: options.pool,
@@ -349,23 +527,47 @@ function createPositionsOpenCommand(): Command {
             otherAmount: rawToUi(otherAmountMax.toString(), otherDecimals),
             otherToken: otherSymbol,
             ...(investmentUsd ? { investmentUsd } : {}),
-            ...(totalUsd ? {
-              tokenA: { symbol: symbolA, amount: amountAUi, usd: amountAUsd },
-              tokenB: { symbol: symbolB, amount: amountBUi, usd: amountBUsd },
-              totalUsd,
-            } : {}),
+            ...(totalUsd
+              ? {
+                  tokenA: {
+                    symbol: symbolA,
+                    amount: amountAUi,
+                    usd: amountAUsd,
+                  },
+                  tokenB: {
+                    symbol: symbolB,
+                    amount: amountBUi,
+                    usd: amountBUsd,
+                  },
+                  totalUsd,
+                }
+              : {}),
           };
 
           // Check wallet balance
           const balanceWarnings = await checkBalanceSufficiency(
-            publicKey, mintAStr, mintBStr,
-            symbolA, symbolB,
-            poolInfo.mintDecimalsA, poolInfo.mintDecimalsB,
-            requiredA, requiredB,
+            publicKey,
+            mintAStr,
+            mintBStr,
+            symbolA,
+            symbolB,
+            poolInfo.mintDecimalsA,
+            poolInfo.mintDecimalsB,
+            requiredA,
+            requiredB,
           );
 
-          if (format === 'json') {
-            const jsonData: Record<string, unknown> = { mode: 'dry-run', ...previewData };
+          // Fetch full wallet balances only when there are balance warnings
+          let walletBalances: WalletBalanceSummary | undefined;
+          if (balanceWarnings.length > 0) {
+            walletBalances = await fetchWalletBalanceSummary(publicKey);
+          }
+
+          if (format === "json") {
+            const jsonData: Record<string, unknown> = {
+              mode: "dry-run",
+              ...previewData,
+            };
             if (balanceWarnings.length > 0) {
               jsonData.balanceWarnings = balanceWarnings.map((w) => ({
                 symbol: w.symbol,
@@ -375,19 +577,39 @@ function createPositionsOpenCommand(): Command {
                 deficit: w.deficit,
                 suggestion: `Swap to get at least ${w.deficit} ${w.symbol} before opening position. Use: byreal-cli swap execute --output-mint ${w.mint} --input-mint <source-token-mint> --amount <amount> --confirm`,
               }));
+              jsonData.walletBalances = walletBalances;
             }
             outputJson(jsonData, startTime);
           } else {
             outputPositionOpenPreview(previewData);
             if (balanceWarnings.length > 0) {
-              console.log(chalk.red.bold('\n  Insufficient Balance'));
+              console.log(chalk.red.bold("\n  Insufficient Balance"));
               for (const w of balanceWarnings) {
-                console.log(chalk.red(`    ${w.symbol}: need ${w.required}, have ${w.available} (deficit: ${w.deficit})`));
-                console.log(chalk.yellow(`    → Swap to get ${w.symbol}: byreal-cli swap execute --output-mint ${w.mint} --input-mint <source-token-mint> --amount <amount> --confirm`));
+                console.log(
+                  chalk.red(
+                    `    ${w.symbol}: need ${w.required}, have ${w.available} (deficit: ${w.deficit})`,
+                  ),
+                );
+                console.log(
+                  chalk.yellow(
+                    `    → Swap to get ${w.symbol}: byreal-cli swap execute --output-mint ${w.mint} --input-mint <source-token-mint> --amount <amount> --confirm`,
+                  ),
+                );
+              }
+              // Show available tokens for swap
+              if (walletBalances) {
+                console.log(chalk.cyan.bold("\n  Available Tokens for Swap"));
+                for (const t of walletBalances.tokens) {
+                  console.log(
+                    chalk.white(`    ${t.symbol}: ${t.amount} (${t.mint})`),
+                  );
+                }
               }
             } else {
-              console.log(chalk.green('\n  Balance check: sufficient'));
-              console.log(chalk.yellow('\n  Use --confirm to open this position'));
+              console.log(chalk.green("\n  Balance check: sufficient"));
+              console.log(
+                chalk.yellow("\n  Use --confirm to open this position"),
+              );
             }
           }
           return;
@@ -409,10 +631,13 @@ function createPositionsOpenCommand(): Command {
         // Sign and send
         result.transaction.sign([keypair]);
         const connection = getConnection();
-        const sendResult = await sendAndConfirmTransaction(connection, result.transaction);
+        const sendResult = await sendAndConfirmTransaction(
+          connection,
+          result.transaction,
+        );
 
         if (!sendResult.ok) {
-          if (format === 'json') {
+          if (format === "json") {
             outputErrorJson(sendResult.error);
           } else {
             outputErrorTable(sendResult.error);
@@ -426,15 +651,20 @@ function createPositionsOpenCommand(): Command {
           nftAddress: result.nftAddress,
         };
 
-        if (format === 'json') {
+        if (format === "json") {
           outputJson(txData, startTime);
         } else {
-          outputTransactionResult('Position Opened', txData);
+          outputTransactionResult("Position Opened", txData);
         }
       } catch (e) {
-        const message = (e as Error).message || 'Unknown SDK error';
-        if (format === 'json') {
-          outputErrorJson({ code: 'SDK_ERROR', type: 'SYSTEM', message, retryable: false });
+        const message = (e as Error).message || "Unknown SDK error";
+        if (format === "json") {
+          outputErrorJson({
+            code: "SDK_ERROR",
+            type: "SYSTEM",
+            message,
+            retryable: false,
+          });
         } else {
           console.error(chalk.red(`\nSDK Error: ${message}`));
           if (process.env.DEBUG) {
@@ -451,12 +681,12 @@ function createPositionsOpenCommand(): Command {
 // ============================================
 
 function createPositionsCloseCommand(): Command {
-  return new Command('close')
-    .description('Close a position (remove all liquidity)')
-    .requiredOption('--nft-mint <address>', 'Position NFT mint address')
-    .option('--slippage <bps>', 'Slippage tolerance in basis points')
-    .option('--dry-run', 'Preview the close without executing')
-    .option('--confirm', 'Close the position')
+  return new Command("close")
+    .description("Close a position (remove all liquidity)")
+    .requiredOption("--nft-mint <address>", "Position NFT mint address")
+    .option("--slippage <bps>", "Slippage tolerance in basis points")
+    .option("--dry-run", "Preview the close without executing")
+    .option("--confirm", "Close the position")
     .action(async (options, cmdObj: Command) => {
       const globalOptions = cmdObj.optsWithGlobals() as GlobalOptions;
       const format = globalOptions.output;
@@ -464,12 +694,12 @@ function createPositionsCloseCommand(): Command {
 
       // Check execution mode
       const mode = resolveExecutionMode(options);
-      requireExecutionMode(mode, 'positions close');
+      requireExecutionMode(mode, "positions close");
 
       // Resolve keypair (required)
       const keypairResult = resolveKeypair(globalOptions.keypairPath);
       if (!keypairResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(keypairResult.error);
         } else {
           outputErrorTable(keypairResult.error);
@@ -481,7 +711,7 @@ function createPositionsCloseCommand(): Command {
 
       try {
         // Lazy-load SDK
-        const { getChain } = await import('../../sdk/init.js');
+        const { getChain } = await import("../../sdk/init.js");
         const chain = getChain();
 
         const nftMint = new PublicKey(options.nftMint);
@@ -490,8 +720,13 @@ function createPositionsCloseCommand(): Command {
         const positionInfo = await chain.getPositionInfoByNftMint(nftMint);
         if (!positionInfo) {
           const errMsg = `Position not found for NFT mint: ${options.nftMint}`;
-          if (format === 'json') {
-            outputErrorJson({ code: 'POSITION_NOT_FOUND', type: 'BUSINESS', message: errMsg, retryable: false });
+          if (format === "json") {
+            outputErrorJson({
+              code: "POSITION_NOT_FOUND",
+              type: "BUSINESS",
+              message: errMsg,
+              retryable: false,
+            });
           } else {
             console.error(chalk.red(`\nError: ${errMsg}`));
           }
@@ -509,7 +744,7 @@ function createPositionsCloseCommand(): Command {
         }
 
         // Dry-run: show preview
-        if (mode === 'dry-run') {
+        if (mode === "dry-run") {
           printDryRunBanner();
           const previewData = {
             nftMint: options.nftMint,
@@ -524,11 +759,13 @@ function createPositionsCloseCommand(): Command {
             symbolB,
           };
 
-          if (format === 'json') {
-            outputJson({ mode: 'dry-run', ...previewData }, startTime);
+          if (format === "json") {
+            outputJson({ mode: "dry-run", ...previewData }, startTime);
           } else {
             outputPositionClosePreview(previewData);
-            console.log(chalk.yellow('\n  Use --confirm to close this position'));
+            console.log(
+              chalk.yellow("\n  Use --confirm to close this position"),
+            );
           }
           return;
         }
@@ -550,10 +787,13 @@ function createPositionsCloseCommand(): Command {
         // Sign and send
         result.transaction.sign([keypair]);
         const connection = getConnection();
-        const sendResult = await sendAndConfirmTransaction(connection, result.transaction);
+        const sendResult = await sendAndConfirmTransaction(
+          connection,
+          result.transaction,
+        );
 
         if (!sendResult.ok) {
-          if (format === 'json') {
+          if (format === "json") {
             outputErrorJson(sendResult.error);
           } else {
             outputErrorTable(sendResult.error);
@@ -566,15 +806,20 @@ function createPositionsCloseCommand(): Command {
           confirmed: sendResult.value.confirmed,
         };
 
-        if (format === 'json') {
+        if (format === "json") {
           outputJson(txData, startTime);
         } else {
-          outputTransactionResult('Position Closed', txData);
+          outputTransactionResult("Position Closed", txData);
         }
       } catch (e) {
-        const message = (e as Error).message || 'Unknown SDK error';
-        if (format === 'json') {
-          outputErrorJson({ code: 'SDK_ERROR', type: 'SYSTEM', message, retryable: false });
+        const message = (e as Error).message || "Unknown SDK error";
+        if (format === "json") {
+          outputErrorJson({
+            code: "SDK_ERROR",
+            type: "SYSTEM",
+            message,
+            retryable: false,
+          });
         } else {
           console.error(chalk.red(`\nSDK Error: ${message}`));
           if (process.env.DEBUG) {
@@ -591,11 +836,14 @@ function createPositionsCloseCommand(): Command {
 // ============================================
 
 function createPositionsClaimCommand(): Command {
-  return new Command('claim')
-    .description('Claim accumulated fees from positions')
-    .requiredOption('--nft-mints <addresses>', 'Comma-separated NFT mint addresses (from positions list)')
-    .option('--dry-run', 'Preview the claim without executing')
-    .option('--confirm', 'Execute the claim')
+  return new Command("claim")
+    .description("Claim accumulated fees from positions")
+    .requiredOption(
+      "--nft-mints <addresses>",
+      "Comma-separated NFT mint addresses (from positions list)",
+    )
+    .option("--dry-run", "Preview the claim without executing")
+    .option("--confirm", "Execute the claim")
     .action(async (options, cmdObj: Command) => {
       const globalOptions = cmdObj.optsWithGlobals() as GlobalOptions;
       const format = globalOptions.output;
@@ -603,12 +851,12 @@ function createPositionsClaimCommand(): Command {
 
       // Check execution mode
       const mode = resolveExecutionMode(options);
-      requireExecutionMode(mode, 'positions claim');
+      requireExecutionMode(mode, "positions claim");
 
       // Resolve keypair (required)
       const keypairResult = resolveKeypair(globalOptions.keypairPath);
       if (!keypairResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(keypairResult.error);
         } else {
           outputErrorTable(keypairResult.error);
@@ -617,7 +865,7 @@ function createPositionsClaimCommand(): Command {
       }
 
       const { keypair, address } = keypairResult.value;
-      const nftMints = options.nftMints.split(',').map((s: string) => s.trim());
+      const nftMints = options.nftMints.split(",").map((s: string) => s.trim());
 
       // Resolve NFT mints → position addresses via positions list API
       const listResult = await api.listPositions({
@@ -627,7 +875,7 @@ function createPositionsClaimCommand(): Command {
       });
 
       if (!listResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(listResult.error);
         } else {
           outputErrorTable(listResult.error);
@@ -652,12 +900,21 @@ function createPositionsClaimCommand(): Command {
       }
 
       if (notFound.length > 0) {
-        const errMsg = `Position not found for NFT mint(s): ${notFound.join(', ')}`;
-        if (format === 'json') {
-          outputErrorJson({ code: 'POSITION_NOT_FOUND', type: 'BUSINESS', message: errMsg, retryable: false });
+        const errMsg = `Position not found for NFT mint(s): ${notFound.join(", ")}`;
+        if (format === "json") {
+          outputErrorJson({
+            code: "POSITION_NOT_FOUND",
+            type: "BUSINESS",
+            message: errMsg,
+            retryable: false,
+          });
         } else {
           console.error(chalk.red(`\nError: ${errMsg}`));
-          console.log(chalk.gray('  Use "byreal-cli positions list" to see your NFT mint addresses'));
+          console.log(
+            chalk.gray(
+              '  Use "byreal-cli positions list" to see your NFT mint addresses',
+            ),
+          );
         }
         process.exit(1);
       }
@@ -669,7 +926,7 @@ function createPositionsClaimCommand(): Command {
       });
 
       if (!encodeResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(encodeResult.error);
         } else {
           outputErrorTable(encodeResult.error);
@@ -680,22 +937,24 @@ function createPositionsClaimCommand(): Command {
       const entries = encodeResult.value;
 
       if (entries.length === 0) {
-        if (format === 'json') {
-          outputJson({ message: 'No fees to claim', entries: [] }, startTime);
+        if (format === "json") {
+          outputJson({ message: "No fees to claim", entries: [] }, startTime);
         } else {
-          console.log(chalk.yellow('\nNo fees to claim for the specified positions'));
+          console.log(
+            chalk.yellow("\nNo fees to claim for the specified positions"),
+          );
         }
         return;
       }
 
       // Dry-run: show preview
-      if (mode === 'dry-run') {
+      if (mode === "dry-run") {
         printDryRunBanner();
-        if (format === 'json') {
-          outputJson({ mode: 'dry-run', entries }, startTime);
+        if (format === "json") {
+          outputJson({ mode: "dry-run", entries }, startTime);
         } else {
           outputPositionClaimPreview(entries);
-          console.log(chalk.yellow('\n  Use --confirm to claim these fees'));
+          console.log(chalk.yellow("\n  Use --confirm to claim these fees"));
         }
         return;
       }
@@ -704,7 +963,11 @@ function createPositionsClaimCommand(): Command {
       printConfirmBanner();
 
       const connection = getConnection();
-      const results: { positionAddress: string; signature?: string; error?: string }[] = [];
+      const results: {
+        positionAddress: string;
+        signature?: string;
+        error?: string;
+      }[] = [];
 
       for (const entry of entries) {
         const txResult = deserializeTransaction(entry.txPayload);
@@ -717,7 +980,10 @@ function createPositionsClaimCommand(): Command {
         }
 
         const signedTx = signTransaction(txResult.value, keypair);
-        const sendResult = await sendAndConfirmTransaction(connection, signedTx);
+        const sendResult = await sendAndConfirmTransaction(
+          connection,
+          signedTx,
+        );
 
         if (!sendResult.ok) {
           results.push({
@@ -732,15 +998,17 @@ function createPositionsClaimCommand(): Command {
         }
       }
 
-      if (format === 'json') {
+      if (format === "json") {
         outputJson({ results }, startTime);
       } else {
-        console.log(chalk.green.bold('\nFee Claim Results\n'));
+        console.log(chalk.green.bold("\nFee Claim Results\n"));
         for (const r of results) {
           if (r.signature) {
             console.log(chalk.green(`  ${r.positionAddress}`));
             console.log(chalk.gray(`    Signature: ${r.signature}`));
-            console.log(chalk.blue(`    Explorer: https://solscan.io/tx/${r.signature}`));
+            console.log(
+              chalk.blue(`    Explorer: https://solscan.io/tx/${r.signature}`),
+            );
           } else {
             console.log(chalk.red(`  ${r.positionAddress}`));
             console.log(chalk.red(`    Error: ${r.error}`));
@@ -748,8 +1016,8 @@ function createPositionsClaimCommand(): Command {
           console.log();
         }
 
-        const succeeded = results.filter(r => r.signature).length;
-        const failed = results.filter(r => r.error).length;
+        const succeeded = results.filter((r) => r.signature).length;
+        const failed = results.filter((r) => r.error).length;
         console.log(chalk.gray(`  ${succeeded} succeeded, ${failed} failed`));
       }
     });
@@ -760,9 +1028,11 @@ function createPositionsClaimCommand(): Command {
 // ============================================
 
 function createPositionsAnalyzeCommand(): Command {
-  return new Command('analyze')
-    .description('Analyze an existing position (performance, range health, unclaimed fees)')
-    .argument('<nft-mint>', 'Position NFT mint address')
+  return new Command("analyze")
+    .description(
+      "Analyze an existing position (performance, range health, unclaimed fees)",
+    )
+    .argument("<nft-mint>", "Position NFT mint address")
     .action(async (nftMintStr: string, _options: unknown, cmdObj: Command) => {
       const globalOptions = cmdObj.optsWithGlobals() as GlobalOptions;
       const format = globalOptions.output;
@@ -771,7 +1041,7 @@ function createPositionsAnalyzeCommand(): Command {
       // Resolve address (required for positions list lookup)
       const addrResult = resolveAddress(globalOptions.keypairPath);
       if (!addrResult.ok) {
-        if (format === 'json') {
+        if (format === "json") {
           outputErrorJson(addrResult.error);
         } else {
           outputErrorTable(addrResult.error);
@@ -788,7 +1058,7 @@ function createPositionsAnalyzeCommand(): Command {
         });
 
         if (!listResult.ok) {
-          if (format === 'json') {
+          if (format === "json") {
             outputErrorJson(listResult.error);
           } else {
             outputErrorTable(listResult.error);
@@ -797,16 +1067,25 @@ function createPositionsAnalyzeCommand(): Command {
         }
 
         const posItem = listResult.value.positions.find(
-          (p) => p.nftMintAddress === nftMintStr
+          (p) => p.nftMintAddress === nftMintStr,
         );
 
         if (!posItem) {
           const errMsg = `Position not found for NFT mint: ${nftMintStr}`;
-          if (format === 'json') {
-            outputErrorJson({ code: 'POSITION_NOT_FOUND', type: 'BUSINESS', message: errMsg, retryable: false });
+          if (format === "json") {
+            outputErrorJson({
+              code: "POSITION_NOT_FOUND",
+              type: "BUSINESS",
+              message: errMsg,
+              retryable: false,
+            });
           } else {
             console.error(chalk.red(`\nError: ${errMsg}`));
-            console.log(chalk.gray('  Use "byreal-cli positions list" to see your NFT mint addresses'));
+            console.log(
+              chalk.gray(
+                '  Use "byreal-cli positions list" to see your NFT mint addresses',
+              ),
+            );
           }
           process.exit(1);
         }
@@ -814,7 +1093,7 @@ function createPositionsAnalyzeCommand(): Command {
         // 2. Get pool info from API
         const poolResult = await api.getPoolInfo(posItem.poolAddress);
         if (!poolResult.ok) {
-          if (format === 'json') {
+          if (format === "json") {
             outputErrorJson(poolResult.error);
           } else {
             outputErrorTable(poolResult.error);
@@ -824,15 +1103,20 @@ function createPositionsAnalyzeCommand(): Command {
         const pool = poolResult.value;
 
         // 3. Get on-chain position info via SDK for price range and fee amounts
-        const { getChain } = await import('../../sdk/init.js');
+        const { getChain } = await import("../../sdk/init.js");
         const chain = getChain();
         const nftMint = new PublicKey(nftMintStr);
         const positionInfo = await chain.getPositionInfoByNftMint(nftMint);
 
         if (!positionInfo) {
           const errMsg = `Position not found on-chain for NFT mint: ${nftMintStr}`;
-          if (format === 'json') {
-            outputErrorJson({ code: 'POSITION_NOT_FOUND', type: 'BUSINESS', message: errMsg, retryable: false });
+          if (format === "json") {
+            outputErrorJson({
+              code: "POSITION_NOT_FOUND",
+              type: "BUSINESS",
+              message: errMsg,
+              retryable: false,
+            });
           } else {
             console.error(chalk.red(`\nError: ${errMsg}`));
           }
@@ -844,41 +1128,59 @@ function createPositionsAnalyzeCommand(): Command {
         const priceLower = parseFloat(positionInfo.uiPriceLower);
         const priceUpper = parseFloat(positionInfo.uiPriceUpper);
         const rangeWidth = priceUpper - priceLower;
-        const rangeWidthPercent = currentPrice > 0 ? (rangeWidth / currentPrice) * 100 : 0;
-        const distanceToLower = currentPrice > 0 ? ((currentPrice - priceLower) / currentPrice) * 100 : 0;
-        const distanceToUpper = currentPrice > 0 ? ((priceUpper - currentPrice) / currentPrice) * 100 : 0;
-        const inRange = currentPrice >= priceLower && currentPrice <= priceUpper;
+        const rangeWidthPercent =
+          currentPrice > 0 ? (rangeWidth / currentPrice) * 100 : 0;
+        const distanceToLower =
+          currentPrice > 0
+            ? ((currentPrice - priceLower) / currentPrice) * 100
+            : 0;
+        const distanceToUpper =
+          currentPrice > 0
+            ? ((priceUpper - currentPrice) / currentPrice) * 100
+            : 0;
+        const inRange =
+          currentPrice >= priceLower && currentPrice <= priceUpper;
 
         // Out of range risk based on distance to nearest boundary
-        const nearestBoundaryDist = Math.min(Math.abs(distanceToLower), Math.abs(distanceToUpper));
-        let outOfRangeRisk: 'low' | 'medium' | 'high';
+        const nearestBoundaryDist = Math.min(
+          Math.abs(distanceToLower),
+          Math.abs(distanceToUpper),
+        );
+        let outOfRangeRisk: "low" | "medium" | "high";
         if (!inRange) {
-          outOfRangeRisk = 'high';
+          outOfRangeRisk = "high";
         } else if (nearestBoundaryDist < 2) {
-          outOfRangeRisk = 'high';
+          outOfRangeRisk = "high";
         } else if (nearestBoundaryDist < 5) {
-          outOfRangeRisk = 'medium';
+          outOfRangeRisk = "medium";
         } else {
-          outOfRangeRisk = 'low';
+          outOfRangeRisk = "low";
         }
 
         // 5. Performance from API data
         // API returns percent as decimal: 0.0129 = 1.29%
-        const liquidityUsd = parseFloat(posItem.liquidityUsd || '0');
-        const earnedUsd = parseFloat(posItem.earnedUsd || '0');
+        const liquidityUsd = parseFloat(posItem.liquidityUsd || "0");
+        const earnedUsd = parseFloat(posItem.earnedUsd || "0");
         const earnedPercent = posItem.earnedUsdPercent
           ? (parseFloat(posItem.earnedUsdPercent) * 100).toFixed(2)
-          : (liquidityUsd > 0 ? ((earnedUsd / liquidityUsd) * 100).toFixed(2) : '0');
-        const pnlUsd = parseFloat(posItem.pnlUsd || '0');
+          : liquidityUsd > 0
+            ? ((earnedUsd / liquidityUsd) * 100).toFixed(2)
+            : "0";
+        const pnlUsd = parseFloat(posItem.pnlUsd || "0");
         const pnlPercent = posItem.pnlUsdPercent
           ? (parseFloat(posItem.pnlUsdPercent) * 100).toFixed(2)
-          : (liquidityUsd > 0 ? ((pnlUsd / liquidityUsd) * 100).toFixed(2) : '0');
+          : liquidityUsd > 0
+            ? ((pnlUsd / liquidityUsd) * 100).toFixed(2)
+            : "0";
         const netReturnUsd = earnedUsd + pnlUsd;
-        const netReturnPercent = liquidityUsd > 0 ? ((netReturnUsd / liquidityUsd) * 100).toFixed(2) : '0';
+        const netReturnPercent =
+          liquidityUsd > 0
+            ? ((netReturnUsd / liquidityUsd) * 100).toFixed(2)
+            : "0";
 
         // 6. Resolve symbols
-        const symbolA = posItem.tokenSymbolA || pool.token_a.symbol || 'TokenA';
-        const symbolB = posItem.tokenSymbolB || pool.token_b.symbol || 'TokenB';
+        const symbolA = posItem.tokenSymbolA || pool.token_a.symbol || "TokenA";
+        const symbolB = posItem.tokenSymbolB || pool.token_b.symbol || "TokenB";
 
         // 7. Build output
         const analysisData = {
@@ -888,7 +1190,7 @@ function createPositionsAnalyzeCommand(): Command {
             pair: posItem.pair || pool.pair,
             priceLower: positionInfo.uiPriceLower,
             priceUpper: positionInfo.uiPriceUpper,
-            status: posItem.status === 0 ? 'active' : 'closed',
+            status: posItem.status === 0 ? "active" : "closed",
             inRange,
           },
           performance: {
@@ -901,7 +1203,10 @@ function createPositionsAnalyzeCommand(): Command {
             netReturnPercent: `${parseFloat(netReturnPercent).toFixed(2)}%`,
           },
           rangeHealth: {
-            currentPrice: currentPrice.toFixed(8).replace(/0+$/, '').replace(/\.$/, ''),
+            currentPrice: currentPrice
+              .toFixed(8)
+              .replace(/0+$/, "")
+              .replace(/\.$/, ""),
             distanceToLower: `${distanceToLower.toFixed(2)}%`,
             distanceToUpper: `${distanceToUpper.toFixed(2)}%`,
             rangeWidth: `${rangeWidthPercent.toFixed(2)}%`,
@@ -925,15 +1230,20 @@ function createPositionsAnalyzeCommand(): Command {
           },
         };
 
-        if (format === 'json') {
+        if (format === "json") {
           outputJson(analysisData, startTime);
         } else {
           outputPositionAnalysisTable(analysisData);
         }
       } catch (e) {
-        const message = (e as Error).message || 'Unknown SDK error';
-        if (format === 'json') {
-          outputErrorJson({ code: 'SDK_ERROR', type: 'SYSTEM', message, retryable: false });
+        const message = (e as Error).message || "Unknown SDK error";
+        if (format === "json") {
+          outputErrorJson({
+            code: "SDK_ERROR",
+            type: "SYSTEM",
+            message,
+            retryable: false,
+          });
         } else {
           console.error(chalk.red(`\nSDK Error: ${message}`));
           if (process.env.DEBUG) {
@@ -950,8 +1260,7 @@ function createPositionsAnalyzeCommand(): Command {
 // ============================================
 
 export function createPositionsCommand(): Command {
-  const cmd = new Command('positions')
-    .description('Manage CLMM positions');
+  const cmd = new Command("positions").description("Manage CLMM positions");
 
   cmd.addCommand(createPositionsListCommand());
   cmd.addCommand(createPositionsOpenCommand());

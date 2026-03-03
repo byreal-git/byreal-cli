@@ -3,8 +3,8 @@
  * 参数与前端 API 保持一致
  */
 
-import { Command } from 'commander';
-import { VERSION } from '../../core/constants.js';
+import { Command } from "commander";
+import { VERSION } from "../../core/constants.js";
 
 // ============================================
 // Full SKILL Documentation
@@ -487,7 +487,8 @@ When the user specifies a USD budget (e.g., "开价值 100U 的仓位", "invest 
 3. **Preview**: \`byreal-cli positions open --pool <id> --price-lower <p> --price-upper <p> --amount-usd <usd> --dry-run -o json\`
    - CLI auto-calculates how much of each token is needed
    - Response includes: tokenA/B amounts, USD breakdown per token, balance warnings
-4. **If insufficient balance**: Check \`wallet balance\`, swap from ANY available token (SOL, USDC, etc.)
+   - If balance is insufficient, \`walletBalances\` is automatically included with all available tokens
+4. **If insufficient balance**: Use \`walletBalances\` from dry-run output to pick a swap source, then swap
 5. **Execute**: \`byreal-cli positions open ... --amount-usd <usd> --confirm -o json\`
 
 ## Workflow: Open Position by Token Amount
@@ -496,27 +497,26 @@ When the user specifies an exact token amount:
 
 1. **Analyze pool**: \`byreal-cli pools analyze <pool-id> -o json\`
 2. **Choose range**: Conservative → larger range (20-50%), Aggressive → smaller range (1-5%)
-3. **Check wallet balance**: \`byreal-cli wallet balance -o json\` — see ALL available tokens
-4. **Plan funding**: Swap from ANY token in the wallet (SOL, USDC, USDT, etc.) — not just the pool's own tokens.
-5. **Preview position**: \`byreal-cli positions open --pool <id> --price-lower <p> --price-upper <p> --base MintA --amount <amt> --dry-run -o json\`
-6. **Execute**: \`byreal-cli positions open ... --confirm -o json\`
+3. **Preview position**: \`byreal-cli positions open --pool <id> --price-lower <p> --price-upper <p> --base MintA --amount <amt> --dry-run -o json\`
+   - If balance is insufficient, \`walletBalances\` is automatically included with all available tokens
+4. **Plan funding** (if needed): Use \`walletBalances\` from dry-run output to pick a swap source
+5. **Execute**: \`byreal-cli positions open ... --confirm -o json\`
 
 ## Workflow: Open Position with Insufficient Balance
 
-When \`positions open --dry-run\` reports insufficient balance (\`balanceWarnings\` in JSON), follow this workflow:
+When \`positions open --dry-run\` reports insufficient balance, the response automatically includes both \`balanceWarnings\` (deficit details) and \`walletBalances\` (all available tokens). No need to run \`wallet balance\` separately.
 
-1. **Check full wallet**: \`byreal-cli wallet balance -o json\` — see ALL tokens and their balances
-2. **Read the deficit**: Check which token(s) are insufficient and the exact deficit amount
-3. **Decide swap source**: Choose which token to swap FROM. **Consider ALL tokens in the wallet**, not just the pool's own tokens:
+1. **Read the dry-run output**: \`balanceWarnings\` shows the deficit, \`walletBalances\` shows all available tokens
+2. **Decide swap source**: Choose which token to swap FROM. **Consider ALL tokens in \`walletBalances\`**, not just the pool's own tokens:
    - Any token with sufficient balance can be used: SOL, USDC, USDT, or any other SPL token
    - Prefer swapping from the token with the highest USD-equivalent balance
    - Prefer stablecoins (USDC, USDT) or SOL as source for lower slippage
    - If the user has SOL but not USDT, swap SOL → needed token (do NOT tell the user they need USDT first)
    - If unsure which token to use, ask the user
-4. **Execute swap**: \`byreal-cli swap execute --input-mint <source-mint> --output-mint <deficit-token-mint> --amount <deficit-amount> --dry-run -o json\` to preview, then \`--confirm\`
+3. **Execute swap**: \`byreal-cli swap execute --input-mint <source-mint> --output-mint <deficit-token-mint> --amount <deficit-amount> --dry-run -o json\` to preview, then \`--confirm\`
    - If swap fails with default mode (\`--swap-mode in\`), try \`--swap-mode out\` instead — it may find a different route (e.g., single-pool AMM route) that succeeds.
-5. **Wait after swap**: After swap confirms, **wait 3-5 seconds** before checking wallet balance or proceeding. On-chain state and RPC nodes have propagation delay — querying immediately may return stale balances.
-6. **Re-run open**: After waiting, re-run \`positions open --dry-run\` to verify balances, then \`--confirm\`
+4. **Wait after swap**: After swap confirms, **wait 3-5 seconds** before checking wallet balance or proceeding. On-chain state and RPC nodes have propagation delay — querying immediately may return stale balances.
+5. **Re-run open**: After waiting, re-run \`positions open --dry-run\` to verify balances, then \`--confirm\`
 
 **Important**: The swap source can be ANY token in the wallet. Do NOT default to only using the pool's own tokens. Always check \`wallet balance\` to see what's available.
 
@@ -629,8 +629,8 @@ When an error occurs, check \`error.suggestions\` for recovery actions:
 // ============================================
 
 export function createSkillCommand(): Command {
-  const skill = new Command('skill')
-    .description('Output full documentation for AI consumption')
+  const skill = new Command("skill")
+    .description("Output full documentation for AI consumption")
     .action(() => {
       console.log(SKILL_DOC);
     });
