@@ -77,6 +77,7 @@ byreal-cli catalog show dex.pool.list
 | config.get | Get a specific config value |
 | config.set | Set a config value |
 | setup | Interactive first-time setup |
+| cli.stats | Show CLI download statistics |
 | update.check | Check for CLI updates |
 | update.install | Install latest CLI version |
 
@@ -157,6 +158,8 @@ You do NOT need to pass token decimals or convert amounts manually. Use \`--raw\
 | First-time setup | \`byreal-cli setup\` |
 | Check for updates | \`byreal-cli update check\` |
 | Install update | \`byreal-cli update install\` |
+| Download stats | \`byreal-cli stats\` |
+| Detailed download stats | \`byreal-cli stats --detail\` |
 
 ## Commands
 
@@ -316,6 +319,21 @@ Interactive first-time setup. Prompts user to paste their private key (JSON byte
 
 \`\`\`bash
 byreal-cli setup
+\`\`\`
+
+### stats
+Show CLI download statistics from GitHub Releases.
+
+\`\`\`bash
+# Total downloads
+byreal-cli stats
+
+# Per-version breakdown
+byreal-cli stats --detail
+
+# JSON output
+byreal-cli stats -o json
+byreal-cli stats --detail -o json
 \`\`\`
 
 ### swap execute

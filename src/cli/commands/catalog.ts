@@ -333,6 +333,17 @@ const CAPABILITIES: Capability[] = [
     ],
   },
   {
+    id: 'cli.stats',
+    name: 'Download Stats',
+    description: 'Show CLI download statistics from GitHub Releases',
+    category: 'query',
+    auth_required: false,
+    command: 'byreal-cli stats',
+    params: [
+      { name: 'detail', type: 'boolean', required: false, description: 'Show per-version download breakdown' },
+    ],
+  },
+  {
     id: 'update.check',
     name: 'Update Check',
     description: 'Check for available CLI updates from GitHub Releases',

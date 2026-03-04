@@ -16,6 +16,7 @@ import { createSetupCommand } from './cli/commands/setup.js';
 import { createSwapCommand } from './cli/commands/swap.js';
 import { createPositionsCommand } from './cli/commands/positions.js';
 import { createUpdateCommand } from './cli/commands/update.js';
+import { createStatsCommand } from './cli/commands/stats.js';
 import { printUpdateNotice } from './core/update-check.js';
 
 // ============================================
@@ -54,6 +55,7 @@ program.addCommand(createSetupCommand());
 program.addCommand(createSwapCommand());
 program.addCommand(createPositionsCommand());
 program.addCommand(createUpdateCommand());
+program.addCommand(createStatsCommand());
 
 // ============================================
 // Error Handling
