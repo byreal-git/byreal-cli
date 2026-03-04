@@ -1,7 +1,7 @@
 {
   "name": "byreal-cli",
   "version": "0.1.0",
-  "description": "AI-friendly CLI for Byreal CLMM DEX on Solana",
+  "description": "AI-native CLI for Byreal CLMM DEX on Solana",
   "type": "module",
   "main": "dist/index.cjs",
   "bin": {
