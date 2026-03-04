@@ -90,7 +90,7 @@ function createSwapExecuteCommand(): Command {
       let keypair: ResolvedKeypair | undefined;
       let userPublicKey: string | undefined;
 
-      const keypairResult = resolveKeypair(globalOptions.keypairPath);
+      const keypairResult = resolveKeypair();
       if (keypairResult.ok) {
         keypair = keypairResult.value;
         userPublicKey = keypair.address;
@@ -104,7 +104,7 @@ function createSwapExecuteCommand(): Command {
         process.exit(1);
       } else {
         // --dry-run without keypair: try resolveAddress for userPublicKey
-        const addrResult = resolveAddress(globalOptions.keypairPath);
+        const addrResult = resolveAddress();
         if (addrResult.ok) {
           userPublicKey = addrResult.value.address;
         }

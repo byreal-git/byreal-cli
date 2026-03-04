@@ -1,6 +1,6 @@
 /**
  * Keypair resolution for Byreal CLI
- * 2-layer priority: CLI flag → config file
+ * Single source: config file
  */
 
 import * as fs from 'node:fs';
@@ -62,32 +62,9 @@ function loadKeypairFromFile(filePath: string): Result<Keypair, ByrealError> {
 // ============================================
 
 /**
- * Resolve keypair using 2-layer priority:
- * 1. --keypair-path CLI flag
- * 2. Config file keypair_path
+ * Resolve keypair from config file
  */
-export function resolveKeypair(
-  cliPath?: string,
-): Result<ResolvedKeypair, ByrealError> {
-  // Layer 1: CLI flag
-  if (cliPath) {
-    const result = loadKeypairFromFile(cliPath);
-    if (!result.ok) return result;
-
-    const keypair = result.value;
-    return ok({
-      keypair,
-      publicKey: keypair.publicKey,
-      address: keypair.publicKey.toBase58(),
-      source: {
-        source: 'cli-flag',
-        label: KEY_SOURCE_LABELS['cli-flag'],
-        path: cliPath,
-      },
-    });
-  }
-
-  // Layer 2: Config file
+export function resolveKeypair(): Result<ResolvedKeypair, ByrealError> {
   const configResult = loadConfig();
   if (configResult.ok) {
     const config = configResult.value;
@@ -115,10 +92,8 @@ export function resolveKeypair(
 }
 
 /** Resolve only the address without loading the full keypair */
-export function resolveAddress(
-  cliPath?: string,
-): Result<{ address: string; source: KeySourceInfo }, ByrealError> {
-  const result = resolveKeypair(cliPath);
+export function resolveAddress(): Result<{ address: string; source: KeySourceInfo }, ByrealError> {
+  const result = resolveKeypair();
   if (!result.ok) return result;
 
   return ok({
@@ -128,7 +103,7 @@ export function resolveAddress(
 }
 
 /** Check if any keypair source is available */
-export function hasKeypairSource(cliPath?: string): boolean {
-  const result = resolveKeypair(cliPath);
+export function hasKeypairSource(): boolean {
+  const result = resolveKeypair();
   return result.ok;
 }

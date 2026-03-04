@@ -161,11 +161,9 @@ function buildRiskSummary(
 
 const SOL_NATIVE_MINT = 'So11111111111111111111111111111111111111112';
 
-async function getWalletUsdValue(
-  keypairPath?: string
-): Promise<{ totalUsd: number; address: string } | null> {
+async function getWalletUsdValue(): Promise<{ totalUsd: number; address: string } | null> {
   try {
-    const keypairResult = resolveKeypair(keypairPath);
+    const keypairResult = resolveKeypair();
     if (!keypairResult.ok) return null;
 
     const { publicKey, address } = keypairResult.value;
@@ -261,7 +259,7 @@ function createPoolsAnalyzeCommand(): Command {
       let walletAddress: string | undefined;
       let walletWarning: string | undefined;
       if (!options.amount) {
-        const walletResult = await getWalletUsdValue(globalOptions.keypairPath);
+        const walletResult = await getWalletUsdValue();
         if (walletResult) {
           walletBalanceUsd = parseFloat(walletResult.totalUsd.toFixed(2));
           walletAddress = walletResult.address;

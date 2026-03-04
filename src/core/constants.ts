@@ -134,7 +134,6 @@ export const EXPERIMENTAL_WARNING = `
 // ============================================
 
 export const KEY_SOURCE_LABELS: Record<KeySource, string> = {
-  'cli-flag': '--keypair-path flag',
   'config': 'config file (~/.config/byreal/config.json)',
   'none': 'not configured',
 };

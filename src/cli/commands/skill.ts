@@ -71,7 +71,7 @@ byreal-cli catalog show dex.pool.list
 | wallet.address | Show wallet address |
 | wallet.balance | Query wallet balance |
 | wallet.info | Detailed wallet info |
-| wallet.set | Set keypair path |
+| wallet.set | Set keypair via --private-key |
 | wallet.reset | Remove keypair config |
 | config.list | List all config values |
 | config.get | Get a specific config value |
@@ -85,7 +85,6 @@ byreal-cli catalog show dex.pool.list
 | Option | Description |
 |--------|-------------|
 | -o, --output | Output format: json, table |
-| --keypair-path | Path to keypair file (overrides config) |
 | --non-interactive | Disable interactive prompts |
 | --debug | Show debug information |
 | -v, --version | Show version |
@@ -151,7 +150,7 @@ You do NOT need to pass token decimals or convert amounts manually. Use \`--raw\
 | Copy a position | \`byreal-cli positions copy --position <addr> --amount-usd <usd> --confirm\` |
 | Wallet address | \`byreal-cli wallet address\` |
 | Wallet balance | \`byreal-cli wallet balance\` |
-| Set keypair | \`byreal-cli wallet set <keypair-path>\` |
+| Set keypair | \`byreal-cli wallet set --private-key "<base58-key>"\` |
 | Config list | \`byreal-cli config list\` |
 | Config get | \`byreal-cli config get <key>\` |
 | Config set | \`byreal-cli config set <key> <value>\` |
@@ -269,10 +268,10 @@ byreal-cli wallet balance -o json
 \`\`\`
 
 ### wallet set
-Set keypair path in configuration. The keypair file is copied to ~/.config/byreal/keys/ for isolation.
+Set keypair via private key. Pass a Base58 or JSON array private key directly (non-interactive, suitable for autonomous agents). The key is saved to ~/.config/byreal/keys/id.json.
 
 \`\`\`bash
-byreal-cli wallet set <keypair-path>
+byreal-cli wallet set --private-key "<base58-private-key>"
 \`\`\`
 
 ### wallet info
@@ -663,7 +662,7 @@ When an error occurs, check \`error.suggestions\` for recovery actions:
 - \`POOL_NOT_FOUND\` → List available pools
 - \`INSUFFICIENT_BALANCE\` → Suggest Swap or reduce amount
 - \`NETWORK_ERROR\` → Retry (error is retryable)
-- \`WALLET_NOT_CONFIGURED\` → Run \`byreal-cli setup\` or \`wallet set <keypair-path>\`
+- \`WALLET_NOT_CONFIGURED\` → Run \`byreal-cli setup\` or \`wallet set --private-key "<key>"\`
 - \`INVALID_KEYPAIR\` → Check keypair file format (64-byte JSON array)
 
 ## Sort Fields Reference

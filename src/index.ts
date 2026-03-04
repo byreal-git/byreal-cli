@@ -30,8 +30,7 @@ program
   .version(VERSION, '-v, --version', 'Output the version number')
   .option('-o, --output <format>', 'Output format (json, table)', 'table')
   .option('--debug', 'Show debug information')
-  .option('--keypair-path <path>', 'Path to keypair file')
-  .option('--non-interactive', 'Disable interactive prompts')
+.option('--non-interactive', 'Disable interactive prompts')
   .addHelpText('before', chalk.cyan(LOGO) + chalk.yellow(EXPERIMENTAL_WARNING))
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();

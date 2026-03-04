@@ -13,13 +13,12 @@ import type { WalletInfo, WalletBalance, TokenBalance, GlobalOptions } from '../
 import {
   resolveKeypair,
   resolveAddress,
-  validateKeypairFile,
+  parsePrivateKeyInput,
   loadConfig,
   saveConfig,
   getConfigPath,
   getKeysDir,
   deleteKeypairConfig,
-  expandTilde,
   ensureConfigDir,
   setFilePermissions,
 } from '../../auth/index.js';
@@ -48,7 +47,7 @@ export function createWalletCommand(): Command {
       const globalOptions = cmd.optsWithGlobals() as GlobalOptions;
       const startTime = Date.now();
 
-      const result = resolveAddress(globalOptions.keypairPath);
+      const result = resolveAddress();
 
       if (!result.ok) {
         outputError(result.error.toJSON(), globalOptions.output);
@@ -72,7 +71,7 @@ export function createWalletCommand(): Command {
       const globalOptions = cmd.optsWithGlobals() as GlobalOptions;
       const startTime = Date.now();
 
-      const keypairResult = resolveKeypair(globalOptions.keypairPath);
+      const keypairResult = resolveKeypair();
 
       if (!keypairResult.ok) {
         outputError(keypairResult.error.toJSON(), globalOptions.output);
@@ -192,38 +191,28 @@ export function createWalletCommand(): Command {
       }
     });
 
-  // wallet set <keypair-path>
+  // wallet set --private-key
   wallet
-    .command('set <keypair-path>')
-    .description('Set keypair path in config')
-    .action((keypairPath: string, _options: unknown, cmd: Command) => {
+    .command('set')
+    .description('Set keypair via private key')
+    .requiredOption('--private-key <key>', 'Base58 or JSON array private key')
+    .action((options: { privateKey: string }, cmd: Command) => {
       const globalOptions = cmd.optsWithGlobals() as GlobalOptions;
       const startTime = Date.now();
 
-      // Validate the keypair file
-      const validation = validateKeypairFile(keypairPath);
-      if (!validation.ok) {
-        outputError(validation.error.toJSON(), globalOptions.output);
+      const parseResult = parsePrivateKeyInput(options.privateKey);
+      if (!parseResult.ok) {
+        outputError(parseResult.error.toJSON(), globalOptions.output);
         process.exit(1);
       }
 
-      // Determine the target path
-      const expandedPath = expandTilde(keypairPath);
+      // Write keypair to keys dir
+      ensureConfigDir('~/.config/byreal/keys');
       const keysDir = getKeysDir();
-      let storedPath: string;
-
-      // If the file is already in byreal keys dir, use it directly
-      if (expandedPath.startsWith(keysDir)) {
-        storedPath = keypairPath;
-      } else {
-        // Copy to byreal keys dir for isolation
-        ensureConfigDir('~/.config/byreal/keys');
-        const fileName = path.basename(expandedPath);
-        const destPath = path.join(keysDir, fileName);
-        fs.copyFileSync(expandedPath, destPath);
-        setFilePermissions(destPath, FILE_PERMISSIONS);
-        storedPath = `~/.config/byreal/keys/${fileName}`;
-      }
+      const destPath = path.join(keysDir, 'id.json');
+      fs.writeFileSync(destPath, JSON.stringify(Array.from(parseResult.value)));
+      setFilePermissions(destPath, FILE_PERMISSIONS);
+      const storedPath = '~/.config/byreal/keys/id.json';
 
       // Save to config
       const configResult = loadConfig();
@@ -267,7 +256,7 @@ export function createWalletCommand(): Command {
       const globalOptions = cmd.optsWithGlobals() as GlobalOptions;
       const startTime = Date.now();
 
-      const result = resolveKeypair(globalOptions.keypairPath);
+      const result = resolveKeypair();
 
       if (!result.ok) {
         outputError(result.error.toJSON(), globalOptions.output);

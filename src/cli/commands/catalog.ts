@@ -139,12 +139,12 @@ const CAPABILITIES: Capability[] = [
   {
     id: 'wallet.set',
     name: 'Wallet Set',
-    description: 'Set keypair path in configuration',
+    description: 'Set keypair via private key (Base58 or JSON array)',
     category: 'execute',
     auth_required: false,
-    command: 'byreal-cli wallet set <keypair-path>',
+    command: 'byreal-cli wallet set --private-key "<key>"',
     params: [
-      { name: 'keypair-path', type: 'string', required: true, description: 'Path to Solana keypair JSON file' },
+      { name: 'private-key', type: 'string', required: true, description: 'Base58 or JSON array private key' },
     ],
   },
   {

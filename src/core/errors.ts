@@ -163,13 +163,13 @@ export function keypairNotFoundError(): ByrealError {
     suggestions: [
       {
         action: 'set',
-        description: 'Set keypair path via wallet set',
-        command: 'byreal-cli wallet set <keypair-path>',
+        description: 'Set keypair via wallet set',
+        command: 'byreal-cli wallet set --private-key "<base58-private-key>"',
       },
       {
-        action: 'flag',
-        description: 'Or use --keypair-path flag',
-        command: 'byreal-cli --keypair-path ~/.config/byreal/keys/main.json wallet address',
+        action: 'setup',
+        description: 'Or run interactive setup',
+        command: 'byreal-cli setup',
       },
     ],
     retryable: false,
@@ -218,7 +218,7 @@ export function configNotFoundError(): ByrealError {
       {
         action: 'set',
         description: 'Create config by setting a keypair',
-        command: 'byreal-cli wallet set <keypair-path>',
+        command: 'byreal-cli wallet set --private-key "<base58-private-key>"',
       },
     ],
     retryable: false,
@@ -249,13 +249,13 @@ export function walletNotConfiguredError(): ByrealError {
     suggestions: [
       {
         action: 'set',
-        description: 'Set keypair path',
-        command: 'byreal-cli wallet set <keypair-path>',
+        description: 'Set keypair via wallet set',
+        command: 'byreal-cli wallet set --private-key "<base58-private-key>"',
       },
       {
-        action: 'flag',
-        description: 'Or use --keypair-path flag for one-time use',
-        command: 'byreal-cli --keypair-path <path> wallet address',
+        action: 'setup',
+        description: 'Or run interactive setup',
+        command: 'byreal-cli setup',
       },
     ],
     retryable: false,

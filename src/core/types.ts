@@ -11,7 +11,6 @@ export type OutputFormat = 'json' | 'table' | 'csv';
 export interface GlobalOptions {
   output: OutputFormat;
   debug: boolean;
-  keypairPath?: string;
   nonInteractive?: boolean;
 }
 
@@ -235,9 +234,8 @@ export function err<E>(error: E): Result<never, E> {
 // Key Source Types
 // ============================================
 
-/** 密钥来源：仅支持 CLI flag 和配置文件两种 */
+/** 密钥来源：仅支持配置文件 */
 export type KeySource =
-  | 'cli-flag'           // --keypair-path flag（临时指定）
   | 'config'             // ~/.config/byreal/config.json（通过 wallet set 配置）
   | 'none';              // 未配置
 

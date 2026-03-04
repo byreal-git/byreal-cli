@@ -53,23 +53,24 @@ All commands support `-o json` for structured output.
 
 | Command                   | Description                                    |
 | ------------------------- | ---------------------------------------------- |
+| `overview`                | Global DEX statistics (TVL, volume, fees)      |
 | `pools list`              | List pools with sorting and filtering          |
 | `pools info`              | Detailed pool information                      |
-| `pools kline`             | K-line / candlestick chart                     |
+| `pools klines`            | K-line / candlestick chart                     |
 | `pools analyze`           | Comprehensive pool analysis (APR, risk, range) |
 | `tokens list`             | List available tokens                          |
-| `tokens search`           | Search tokens by symbol or name                |
-| `tokens price`            | Get token price                                |
 | `swap execute`            | Preview or execute a token swap                |
+| `positions list`          | List your CLMM positions                       |
 | `positions open`          | Open a new CLMM position                       |
 | `positions close`         | Close a position                               |
 | `positions claim`         | Claim fees and rewards                         |
+| `positions analyze`       | Analyze an existing position                   |
 | `positions top-positions` | View top positions in a pool                   |
 | `positions copy`          | Copy a farmer's position                       |
 | `wallet address`          | Show wallet address                            |
 | `wallet balance`          | Show wallet balances                           |
-| `config show`             | Show current configuration                     |
-| `config set`              | Update configuration                           |
+| `setup`                   | Interactive first-time setup                   |
+| `update check`            | Check for CLI updates                          |
 
 ## Update
 

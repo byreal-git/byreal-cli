@@ -63,7 +63,7 @@ function createPositionsListCommand(): Command {
       const startTime = Date.now();
 
       // Resolve user address (required)
-      const addrResult = resolveAddress(globalOptions.keypairPath);
+      const addrResult = resolveAddress();
       if (!addrResult.ok) {
         if (format === "json") {
           outputErrorJson(addrResult.error);
@@ -327,7 +327,7 @@ function createPositionsOpenCommand(): Command {
       requireExecutionMode(mode, "positions open");
 
       // Resolve keypair (required)
-      const keypairResult = resolveKeypair(globalOptions.keypairPath);
+      const keypairResult = resolveKeypair();
       if (!keypairResult.ok) {
         if (format === "json") {
           outputErrorJson(keypairResult.error);
@@ -718,7 +718,7 @@ function createPositionsCloseCommand(): Command {
       requireExecutionMode(mode, "positions close");
 
       // Resolve keypair (required)
-      const keypairResult = resolveKeypair(globalOptions.keypairPath);
+      const keypairResult = resolveKeypair();
       if (!keypairResult.ok) {
         if (format === "json") {
           outputErrorJson(keypairResult.error);
@@ -875,7 +875,7 @@ function createPositionsClaimCommand(): Command {
       requireExecutionMode(mode, "positions claim");
 
       // Resolve keypair (required)
-      const keypairResult = resolveKeypair(globalOptions.keypairPath);
+      const keypairResult = resolveKeypair();
       if (!keypairResult.ok) {
         if (format === "json") {
           outputErrorJson(keypairResult.error);
@@ -1060,7 +1060,7 @@ function createPositionsAnalyzeCommand(): Command {
       const startTime = Date.now();
 
       // Resolve address (required for positions list lookup)
-      const addrResult = resolveAddress(globalOptions.keypairPath);
+      const addrResult = resolveAddress();
       if (!addrResult.ok) {
         if (format === "json") {
           outputErrorJson(addrResult.error);
@@ -1378,7 +1378,7 @@ function createCopyPositionCommand(): Command {
       requireExecutionMode(mode, "positions copy");
 
       // Resolve keypair (required)
-      const keypairResult = resolveKeypair(globalOptions.keypairPath);
+      const keypairResult = resolveKeypair();
       if (!keypairResult.ok) {
         if (format === "json") {
           outputErrorJson(keypairResult.error);
