@@ -2,4 +2,17 @@
 
 ## Display Rules
 
-- **Mint 地址永远不缩写**：在 table 输出和 JSON 输出中，Solana mint address / pool address / 任何链上地址都必须显示完整，不要用 `xxx...` 截断。
+- **Never abbreviate on-chain addresses**: In both table and JSON output, always display Solana mint / pool / position addresses in full. Never truncate with `...`.
+
+## Commit Convention
+
+- All commit messages must be in English
+- Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`
+
+## Architecture
+
+- `src/cli/` — Command definitions and output formatting
+- `src/core/` — Types, constants, API client
+- `src/sdk/` — On-chain interaction (Solana RPC, transaction building)
+- `src/libs/` — Vendored libraries (CLMM SDK)
+- `skills/` — AI skill definition for LLM integration

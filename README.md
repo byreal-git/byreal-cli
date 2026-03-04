@@ -1,16 +1,16 @@
 # Byreal CLI
 
-AI-friendly CLI for [Byreal](https://byreal.io) CLMM DEX on Solana.
+AI-native CLI for [Byreal](https://byreal.io) — a concentrated liquidity (CLMM) DEX on Solana. Designed for LLM agents: every command supports structured JSON output, and the built-in skill system lets AI assistants discover and use all capabilities automatically.
 
 ## AI Integration
 
-Install as a Skill:
+Byreal CLI is built to be used by AI agents. Install it as a **Skill** so your LLM can discover all capabilities:
 
 ```bash
 npx skills add byreal-git/byreal-cli
 ```
 
-Install cli only:
+Or install the CLI only:
 
 ```bash
 npm install -g https://github.com/byreal-git/byreal-cli/releases/latest/download/byreal-cli.tgz
@@ -18,13 +18,12 @@ npm install -g https://github.com/byreal-git/byreal-cli/releases/latest/download
 
 ## Features
 
-- **Pools** — list, info, K-lines, comprehensive analysis (APR, volatility, risk)
-- **Tokens** — list, search, price
-- **Swap** — preview and execute token swaps
-- **Positions** — open, close, claim fees, analyze performance
-- **Wallet** — address, balance, keypair management
-- **Config** — RPC URL, slippage, priority fee
-- **AI Skill** — `byreal-cli skill` outputs full documentation for LLM consumption
+- **Pools** — List, search, and inspect CLMM pools. View K-line charts, APR, TVL, volume, and run comprehensive pool analysis (risk, volatility, range recommendations).
+- **Tokens** — List tokens, search by symbol/name, get real-time prices.
+- **Swap** — Preview and execute token swaps with slippage control and price impact estimation.
+- **Positions** — Open, close, and manage CLMM positions. Claim fees and rewards. Analyze position performance. Copy top farmers' positions with one command.
+- **Wallet** — View address and balances, manage keypairs.
+- **Config** — Configure RPC URL, slippage tolerance, priority fees.
 
 ## Quick Start
 
@@ -43,9 +42,34 @@ byreal-cli swap execute \
   --input-mint So11111111111111111111111111111111111111112 \
   --output-mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v \
   --amount 0.1 --dry-run
+
+# Copy a top farmer's position
+byreal-cli positions copy --position <address> --amount-usd 100 --confirm
 ```
 
 All commands support `-o json` for structured output.
+
+## Commands
+
+| Command                   | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `pools list`              | List pools with sorting and filtering          |
+| `pools info`              | Detailed pool information                      |
+| `pools kline`             | K-line / candlestick chart                     |
+| `pools analyze`           | Comprehensive pool analysis (APR, risk, range) |
+| `tokens list`             | List available tokens                          |
+| `tokens search`           | Search tokens by symbol or name                |
+| `tokens price`            | Get token price                                |
+| `swap execute`            | Preview or execute a token swap                |
+| `positions open`          | Open a new CLMM position                       |
+| `positions close`         | Close a position                               |
+| `positions claim`         | Claim fees and rewards                         |
+| `positions top-positions` | View top positions in a pool                   |
+| `positions copy`          | Copy a farmer's position                       |
+| `wallet address`          | Show wallet address                            |
+| `wallet balance`          | Show wallet balances                           |
+| `config show`             | Show current configuration                     |
+| `config set`              | Update configuration                           |
 
 ## Update
 
@@ -53,3 +77,7 @@ All commands support `-o json` for structured output.
 byreal-cli update check
 byreal-cli update install
 ```
+
+## License
+
+MIT
