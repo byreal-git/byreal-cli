@@ -37,11 +37,18 @@ jobs:
       - name: Verify build
         run: node dist/index.cjs --version
 
-      - name: Create npm tarball
+      - name: Create release tarballs
         run: |
+          # Main scoped package tarball for direct download / inspection
           PACK_FILE="$(npm pack --silent)"
           echo "PACK_FILE=$PACK_FILE" >> "$GITHUB_ENV"
-          cp "$PACK_FILE" byreal-cli.tgz
+
+          # 0.2.x bridge artifact for legacy updater path (GitHub byreal-cli.tgz)
+          cp package.json package.json.bak
+          node -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));pkg.name='byreal-cli';fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          LEGACY_PACK_FILE="$(npm pack --silent)"
+          mv "$LEGACY_PACK_FILE" byreal-cli.tgz
+          mv package.json.bak package.json
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
