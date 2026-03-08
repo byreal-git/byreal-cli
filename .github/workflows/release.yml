@@ -21,7 +21,6 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           npm version "$VERSION" --no-git-tag-version
-          sed -i "s/export const VERSION = '.*'/export const VERSION = '$VERSION'/" src/core/constants.ts
 
       - name: Install dependencies
         run: npm ci
@@ -34,13 +33,14 @@ jobs:
 
       - name: Create npm tarball
         run: |
-          npm pack
-          cp byreal-cli-*.tgz byreal-cli.tgz
+          PACK_FILE="$(npm pack --silent)"
+          echo "PACK_FILE=$PACK_FILE" >> "$GITHUB_ENV"
+          cp "$PACK_FILE" byreal-cli.tgz
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            byreal-cli-*.tgz
+            ${{ env.PACK_FILE }}
             byreal-cli.tgz
