@@ -7,6 +7,7 @@
   "bin": {
     "byreal-cli": "dist/index.cjs"
   },
+  "homepage": "https://github.com/byreal-git/byreal-cli",
   "repository": {
     "type": "git",
     "url": "https://github.com/byreal-git/byreal-cli.git"
