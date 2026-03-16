@@ -416,13 +416,12 @@ function createPositionsOpenCommand(): Command {
       try {
         // Lazy-load SDK
         const { getChain } = await import("../../sdk/init.js");
-        const { calculateTickAlignedPriceRange } =
-          await import("../../libs/clmm-sdk/calculate.js");
+        const { calculateTickAlignedPriceRange, calculateTokenAmountsFromUsd } =
+          await import("../../sdk/calculate.js");
         const {
           getAmountBFromAmountA,
           getAmountAFromAmountB,
-          calculateTokenAmountsFromUsd,
-        } = await import("../../libs/clmm-sdk/client/utils.js");
+        } = await import("@byreal-io/byreal-clmm-sdk");
 
         const chain = getChain();
 
@@ -1435,9 +1434,7 @@ function createTopPositionsCommand(): Command {
         const { getChain } = await import("../../sdk/init.js");
         const chain = getChain();
         const poolInfo = await chain.getRawPoolInfoByPoolId(options.pool);
-        const { TickMath } = await import(
-          "../../libs/clmm-sdk/instructions/utils/tickMath.js"
-        );
+        const { TickMath } = await import("@byreal-io/byreal-clmm-sdk");
         for (const pos of result.value.positions) {
           pos.inRange =
             poolInfo.tickCurrent >= pos.tickLower &&
@@ -1537,15 +1534,15 @@ function createCopyPositionCommand(): Command {
 
         // Lazy-load SDK
         const { getChain } = await import("../../sdk/init.js");
-        const { calculateTokenAmountsFromUsd } = await import(
-          "../../libs/clmm-sdk/client/utils.js"
+        const { calculateTokenAmountsFromUsd, getRawPositionInfoByAddress } = await import(
+          "../../sdk/calculate.js"
         );
 
         const chain = getChain();
 
         // Read parent position on-chain
         const parentPosition =
-          await chain.getRawPositionInfoByAddress(positionAddress);
+          await getRawPositionInfoByAddress(positionAddress);
         if (!parentPosition) {
           const errMsg = `Position not found on-chain: ${options.position}`;
           if (format === "json") {
@@ -1598,9 +1595,7 @@ function createCopyPositionCommand(): Command {
         }
 
         // Convert ticks to prices for display
-        const { TickMath } = await import(
-          "../../libs/clmm-sdk/instructions/utils/tickMath.js"
-        );
+        const { TickMath } = await import("@byreal-io/byreal-clmm-sdk");
         const priceLower = TickMath.getPriceFromTick({
           tick: tickLower,
           decimalsA: poolInfo.mintDecimalsA,

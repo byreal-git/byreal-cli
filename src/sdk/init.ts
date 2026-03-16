@@ -3,8 +3,7 @@
  * Singleton pattern - lazily initializes Chain instance
  */
 
-import { Chain } from '../libs/clmm-sdk/client/index.js';
-import { BYREAL_CLMM_PROGRAM_ID } from '../libs/clmm-sdk/constants.js';
+import { Chain, BYREAL_CLMM_PROGRAM_ID } from '@byreal-io/byreal-clmm-sdk';
 import { getConnection } from '../core/solana.js';
 
 let chainInstance: Chain | null = null;

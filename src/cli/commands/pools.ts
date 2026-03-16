@@ -284,8 +284,7 @@ function createPoolsAnalyzeCommand(): Command {
       try {
         // 2. Get on-chain pool info (lazy-load SDK)
         const { getChain } = await import('../../sdk/init.js');
-        const { calculateRangeAprs } = await import('../../libs/clmm-sdk/client/utils.js');
-        const { TickMath } = await import('../../libs/clmm-sdk/instructions/index.js');
+        const { calculateRangeAprs, TickMath } = await import('@byreal-io/byreal-clmm-sdk');
 
         const chain = getChain();
         const chainPoolInfo = await chain.getRawPoolInfoByPoolId(poolId);
