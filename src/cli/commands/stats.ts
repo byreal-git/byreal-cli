@@ -4,19 +4,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import Table from "cli-table3";
-import { GITHUB_REPO, TABLE_CHARS } from "../../core/constants.js";
+import { GITHUB_REPO } from "../../core/constants.js";
 import { outputJson } from "../output/formatters.js";
-
-// ============================================
-// Types
-// ============================================
-
-interface ReleaseStats {
-  version: string;
-  publishedAt: string;
-  downloads: number;
-}
 
 interface NpmDownloads {
   total: number;
@@ -26,10 +15,10 @@ interface NpmDownloads {
 const NPM_PACKAGE = "@byreal-io/byreal-cli";
 
 // ============================================
-// Fetch Release Stats
+// Fetch Stats
 // ============================================
 
-function fetchGitHubStats(): ReleaseStats[] | null {
+function fetchGitHubDownloads(): number | null {
   try {
     const { execSync } = require("child_process");
     const result = execSync(
@@ -37,19 +26,15 @@ function fetchGitHubStats(): ReleaseStats[] | null {
       { timeout: 10000, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
     );
     const releases = JSON.parse(result) as Array<{
-      tag_name: string;
-      published_at: string;
       assets: Array<{ download_count: number }>;
     }>;
 
-    return releases.map((release) => ({
-      version: release.tag_name,
-      publishedAt: release.published_at.slice(0, 10),
-      downloads: release.assets.reduce(
-        (sum, asset) => sum + asset.download_count,
-        0,
-      ),
-    }));
+    return releases.reduce(
+      (total, release) =>
+        total +
+        release.assets.reduce((sum, asset) => sum + asset.download_count, 0),
+      0,
+    );
   } catch {
     return null;
   }
@@ -60,9 +45,7 @@ function fetchNpmDownloads(): NpmDownloads | null {
     const { execSync } = require("child_process");
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
-    const start = new Date(now);
-    start.setMonth(start.getMonth() - 18);
-    const startDate = start.toISOString().slice(0, 10);
+    const startDate = "2026-01-01";
     const result = execSync(
       `curl -sf "https://api.npmjs.org/downloads/point/${startDate}:${today}/${encodeURIComponent(NPM_PACKAGE)}"`,
       { timeout: 10000, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
@@ -85,16 +68,15 @@ function fetchNpmDownloads(): NpmDownloads | null {
 export function createStatsCommand(): Command {
   return new Command("stats")
     .description("Show CLI download statistics from GitHub Releases and npm")
-    .option("--detail", "Show per-version download breakdown")
-    .action((options: { detail?: boolean }, cmd: Command) => {
+    .action((_options: Record<string, unknown>, cmd: Command) => {
       const globalOptions = cmd.optsWithGlobals();
       const outputFormat = globalOptions.output || "table";
       const startTime = Date.now();
 
-      const githubStats = fetchGitHubStats();
+      const githubTotal = fetchGitHubDownloads();
       const npmStats = fetchNpmDownloads();
 
-      if (!githubStats && !npmStats) {
+      if (githubTotal === null && !npmStats) {
         if (outputFormat === "json") {
           console.log(
             JSON.stringify(
@@ -126,17 +108,15 @@ export function createStatsCommand(): Command {
         return;
       }
 
-      const githubTotal =
-        githubStats?.reduce((sum, r) => sum + r.downloads, 0) ?? 0;
+      const ghTotal = githubTotal ?? 0;
       const npmTotal = npmStats?.total ?? 0;
-      const totalDownloads = githubTotal + npmTotal;
+      const totalDownloads = ghTotal + npmTotal;
 
       if (outputFormat === "json") {
         const jsonData: Record<string, unknown> = {
           totalDownloads,
           github: {
-            downloads: githubTotal,
-            ...(options.detail && githubStats ? { releases: githubStats } : {}),
+            downloads: ghTotal,
           },
           npm: {
             downloads: npmTotal,
@@ -148,55 +128,27 @@ export function createStatsCommand(): Command {
       }
 
       // Table output
-      if (options.detail) {
-        console.log(chalk.white.bold("\nGitHub Releases"));
-        if (githubStats) {
-          const table = new Table({
-            head: [
-              chalk.cyan.bold("Version"),
-              chalk.cyan.bold("Published"),
-              chalk.cyan.bold("Downloads"),
-            ],
-            chars: TABLE_CHARS,
-            style: {
-              head: [],
-              border: [],
-              "padding-left": 1,
-              "padding-right": 1,
-            },
-          });
+      console.log(chalk.white.bold("\nNPM Registry"));
+      if (npmStats) {
+        console.log(chalk.gray(`  Period: ${npmStats.period}`));
+        console.log(chalk.gray(`  Downloads: ${npmTotal}`));
+      } else {
+        console.log(chalk.gray("  Not yet published or no downloads"));
+      }
 
-          for (const release of githubStats) {
-            table.push([
-              chalk.white(release.version),
-              chalk.gray(release.publishedAt),
-              String(release.downloads),
-            ]);
-          }
-
-          console.log(table.toString());
-          console.log(chalk.gray(`  Subtotal: ${githubTotal}`));
-        } else {
-          console.log(chalk.gray("  Unavailable"));
-        }
-
-        console.log(chalk.white.bold("\nnpm Registry"));
-        if (npmStats) {
-          console.log(chalk.gray(`  Period: ${npmStats.period}`));
-          console.log(chalk.gray(`  Subtotal: ${npmTotal}`));
-        } else {
-          console.log(chalk.gray("  Not yet published or no downloads"));
-        }
+      console.log(chalk.white.bold("\nGitHub Releases"));
+      if (githubTotal !== null) {
+        console.log(chalk.gray(`  Downloads: ${ghTotal}`));
+      } else {
+        console.log(chalk.gray("  Unavailable"));
       }
 
       console.log(chalk.cyan.bold(`\nTotal Downloads: ${totalDownloads}`));
-      if (options.detail || outputFormat === "table") {
-        const parts: string[] = [];
-        if (githubTotal > 0) parts.push(`GitHub ${githubTotal}`);
-        if (npmTotal > 0) parts.push(`npm ${npmTotal}`);
-        if (parts.length === 2) {
-          console.log(chalk.gray(`  (${parts.join(" + ")})`));
-        }
+      const parts: string[] = [];
+      if (npmTotal > 0) parts.push(`NPM ${npmTotal}`);
+      if (ghTotal > 0) parts.push(`GitHub ${ghTotal}`);
+      if (parts.length === 2) {
+        console.log(chalk.gray(`  (${parts.join(" + ")})`));
       }
       console.log();
     });
